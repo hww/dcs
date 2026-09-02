@@ -16,7 +16,7 @@ public interface IEventData {
 // Интерфейс для вашей идеи с чистой инициализацией компонентов
 public interface IDcsInitializable
 {
-    void Init(object prius);
+    void Init(object  prius);
 }
 
 // Игровой объект (абсолютно невесом)
@@ -85,9 +85,9 @@ public static class DynamicComponentSystem
         ComponentManager<T> pool = ComponentRegistry.GetPool<T>();
         
         // ИСПРАВЛЕНО: Теперь все имена переменных строго соответствуют аргументу msgHandle!
-        if (pool.Generations[msgHandle.ComponentId] == msgHandle.Generation)
+        if (pool.Roster[msgHandle.ComponentId].Generation == msgHandle.Generation)
         {
-            int denseIndex = pool.Roster[msgHandle.ComponentId];
+            int denseIndex = pool.Roster[msgHandle.ComponentId].Index;
             return ref pool.Components[denseIndex];
         }
 

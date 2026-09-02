@@ -24,7 +24,7 @@ public static class RotatorSystem
             ref RotatorComponent rotator = ref pool.Components[i];
             
             // Из параллельного массива метаданных за 1 такт узнаем, какому Хосту принадлежит память
-            HostHandle host = pool.Hosts[i];
+            HostHandle host = pool.Roster[i].Host;
 
             // Наращиваем угол
             rotator.CurrentAngle += rotator.Speed * deltaTime;

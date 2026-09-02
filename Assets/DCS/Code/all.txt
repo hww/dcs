@@ -170,12 +170,17 @@ public class ComponentManager<T> : IComponentPool where T : struct
     protected int _rosterIncr = 0;       
     private readonly System.Type _componentType;
     private readonly int _poolId;      
+    private EUpdateStage _updateStages;
+    private EUpdateStage _asyncUpdateStages;
+    private uint _mask;
 
-    public ComponentManager(int capacity)
+    public ComponentManager(int capacity, EUpdateStage updateStages = EUpdateStage.Update, EUpdateStage asyncUpdateStages = EUpdateStage.None, uint mask = 0)
     {
         _componentType = typeof(T);
         _poolId = ComponentType<T>.Id; 
-
+        _updateStages = updateStages;
+        _asyncUpdateStages = asyncUpdateStages;
+        _mask = mask;
         Components = new T[capacity];
         Hosts = new HostHandle[capacity];
         Roster = new int[capacity];
@@ -267,8 +272,8 @@ public class ComponentManager<T> : IComponentPool where T : struct
 using System.Reflection;
 using UnityEngine;
 
-// Автоматический калькулятор-регистратор типовpublic 
-static class ComponentType<T> where T : struct
+// Автоматический калькулятор-регистратор типов
+public static class ComponentType<T> where T : struct
 {
     public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
 }
@@ -380,6 +385,14 @@ public enum EUpdateStage
     PostUpdate
 }
 
+public enum EAsyncUpdateStage 
+{
+    None,
+    Update,
+    FixedUpdate,
+    PostUpdate
+}
+
 public static class DynamicComponentSystem
 {
     public static ComponentHandle Get<T>(HostHandle host_handle, Chain chain) where T : struct
@@ -428,7 +441,7 @@ public static class DynamicComponentSystem
         chain.FreeChain(host_handle);
     }
 
-    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain)
+    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain, uint mask = 0)
     {
         switch (stage)
         {
@@ -455,23 +468,38 @@ public static class DynamicComponentSystem
 public class DcsPoolAttribute : Attribute
 {
     public int Capacity { get; }
+    public uint Mask { get; }
+    public EUpdateStage UpdateStage { get; }
+    public EAsyncUpdateStage AsyncUpdateStage { get; }
 
-    public DcsPoolAttribute(int capacity = 1000)
+    public DcsPoolAttribute(int capacity = 1000, 
+        EUpdateStage updateStage = EUpdateStage.Update, 
+        EAsyncUpdateStage asyncUpdateStage = EAsyncUpdateStage.None, 
+        uint mask = 0)
     {
         Capacity = capacity;
+        UpdateStage = updateStage;
+        AsyncUpdateStage = asyncUpdateStage;
+        Mask = mask;
     }
 }
 
 // Атрибут для персистентных компонентов (например, RotatorComponent)
 public class ComponentPoolAttribute : DcsPoolAttribute
 {
-    public ComponentPoolAttribute(int capacity = 1000) : base(capacity) { }
+    public ComponentPoolAttribute(int capacity = 1000, 
+        EUpdateStage updateStage = EUpdateStage.Update, 
+        EAsyncUpdateStage asyncUpdateStage = EAsyncUpdateStage.None, 
+        uint mask = 0) : base(capacity, updateStage, asyncUpdateStage, mask) { }
 }
 
 // Атрибут для игровых событий и сообщений (например, DamageEvent, LocationEvent)
 public class MessagePoolAttribute : DcsPoolAttribute
 {
-    public MessagePoolAttribute(int capacity = 500) : base(capacity) { }
+    public MessagePoolAttribute(int capacity = 1000, 
+        EUpdateStage updateStage = EUpdateStage.Update, 
+        EAsyncUpdateStage asyncUpdateStage = EAsyncUpdateStage.None, 
+        uint mask = 0) : base(capacity, updateStage, asyncUpdateStage, mask) { }    
 }
 public class EventManager<T> : ComponentManager<T> where T : struct, IEventData
 {

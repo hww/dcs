@@ -3,16 +3,15 @@ using System.Runtime.CompilerServices;
 
 public struct InvokeRecord
 {
-    public HostHandle ReceiverHost;       // Хост-жертва
+    public HostHandle ReceiverHost;       // Хост-получатель подписки
     public ComponentHandle ReceiverProcessHandle; // Хэндл Процесса-Автомата
     public int ReceiverProcessTypeId;     // TypeId компонента-процесса
-    public int ComponentId;               // Индекс сообщения в роутере EVE-пула
+    public int ComponentId;               // Индекс сообщения в плотном пуле событий (denseIndex)
     public int ComponentGeneration;       // Поколение сообщения для валидации
 }
 
 public static class EventSystem
 {
-    // Покадровый буфер вызовов (Invoke List) теперь живет прямо внутри системного кадра
     public const int MaxInvokes = 1000;
     private static readonly InvokeRecord[] _invokeList = new InvokeRecord[MaxInvokes];
     private static int _invokeCount = 0;
@@ -27,7 +26,6 @@ public static class EventSystem
         var eventPool = (EventManager<TEvent>)ComponentRegistry.Pools[eventTypeId]; 
         if (eventPool.Partition == 0) return; 
 
-        // ТЕПЕРЬ РАБОТАЕТ: Метод легально виден компилятору
         int subIdx = subManager.GetTypeChainHead(eventTypeId);
 
         while (subIdx >= 0)
@@ -42,13 +40,14 @@ public static class EventSystem
                 {
                     if (_invokeCount >= _invokeList.Length) return;
 
+                    // ИСПРАВЛЕНО: Данные хоста и поколения теперь берутся из структуры RosterItem
                     _invokeList[_invokeCount] = new InvokeRecord
                     {
-                        ReceiverHost = eventPool.Hosts[j],
+                        ReceiverHost = eventPool.Roster[j].Host,
                         ReceiverProcessHandle = sub.ProcessHandle,
                         ReceiverProcessTypeId = sub.ProcessTypeId,
-                        ComponentId = j,
-                        ComponentGeneration = eventPool.Generations[j]
+                        ComponentId = j, // Для покадровых событий denseIndex равен rosterIndex
+                        ComponentGeneration = eventPool.Roster[j].Generation
                     };
                     _invokeCount++;
                 }
@@ -58,7 +57,7 @@ public static class EventSystem
     }
     
     /// <summary>
-    /// Фаза Б: Чистая полиморфная доставка БЕЗ МУСОРА И БЕЗ БОКСИНГА через MessageHandle
+    /// Фаза Б: Чистая полиморфная доставка БЕЗ МУСОРА И БЕЗ БОКСИНГА через SystemDeliver
     /// </summary>
     public static void DeliverEvents(Chain chain)
     {
@@ -66,6 +65,7 @@ public static class EventSystem
         {
             InvokeRecord record = _invokeList[i];
 
+            // Собираем полиморфный "паспорт" сообщения
             MessageHandle msgHandle = new MessageHandle
             {
                 TypeId = record.ReceiverProcessTypeId,
@@ -73,18 +73,30 @@ public static class EventSystem
                 Generation = record.ComponentGeneration
             };
 
-            // ИСПРАВЛЕНО: Рефлексия вырезана. Доставка идет через каст пула к generic-типу.
-            // Так как тип ProcessTypeId определяет класс-автомат, мы заставляем менеджеры
-            // процессов наследоваться от пула или использовать интерфейс обработки.
-            // Для демонстрации извлечения мы делаем безопасный каст к пулу-приемнику:
+            // Получаем пул компонента-процесса (автомата), который подписался на событие
             IComponentPool targetPool = ComponentRegistry.Pools[record.ReceiverProcessTypeId];
             
-            // Быстрое извлечение компонента через каст пула (JIT сожмет это до прямого вызова)
-            var manager = targetPool as ComponentManager<SubscriptionNode>; // Или вашего типа Процесса TProcess
-            
-            // Так как геймплейные процессы кастомные, мы можем использовать динамический интерфейс 
-            // пула или кастить к базовому ComponentManager для извлечения объекта-приемника:
-            // (Предполагается, что пулы геймплейных процессов унаследованы от ComponentManager)
+            // ИСПРАВЛЕНО: Находим плотный индекс самого Процесса-Автомата внутри его пула.
+            // Нам нужно достать его через хэндл процесса (ReceiverProcessHandle.Id)
+            // Но так как targetPool скрыт за интерфейсом IComponentPool, нам нужен способ 
+            // передать туда запрос. Самый чистый и прямой путь — достать плотный индекс 
+            // из ростера этого пула, если мы приведем его к базовому ComponentManager,
+            // либо вызывать доставку напрямую по хэндлу.
+            // Поскольку у нас есть метод SystemDeliver(int denseIndex, MessageHandle msgHandle),
+            // мы временно кастим к базовому менеджеру без привязки к конкретной T, чтобы узнать индекс:
+            if (targetPool is IComponentPool pool)
+            {
+                // Для доставки нам нужен denseIndex компонента-приемника. 
+                // Мы берем хэндл процесса, проверяем валидность поколения и достаем DenseIndex.
+                // Чтобы не плодить касты, мы можем расширить SystemDeliver, передавая туда сразу 
+                // ComponentHandle процесса-приемника, а пул сам внутри себя сделает быстрый Resolve.
+                
+                // Давай сделаем это максимально элегантно: пускай пул сам найдет свой denseIndex по Id хэндла:
+                int receiverRosterId = record.ReceiverProcessHandle.Id;
+                
+                // Вызываем наше исправленное, легальное системное API доставки прямо в пул:
+                targetPool.SystemDeliver(receiverRosterId, msgHandle);
+            }
         }
         _invokeCount = 0;
     }
