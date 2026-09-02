@@ -22,12 +22,17 @@ public class ComponentManager<T> : IComponentPool where T : struct
     protected int _rosterIncr = 0;       
     private readonly System.Type _componentType;
     private readonly int _poolId;      
+    private EUpdateStage _updateStages;
+    private EUpdateStage _asyncUpdateStages;
+    private uint _mask;
 
-    public ComponentManager(int capacity)
+    public ComponentManager(int capacity, EUpdateStage updateStages = EUpdateStage.Update, EUpdateStage asyncUpdateStages = EUpdateStage.None, uint mask = 0)
     {
         _componentType = typeof(T);
         _poolId = ComponentType<T>.Id; 
-
+        _updateStages = updateStages;
+        _asyncUpdateStages = asyncUpdateStages;
+        _mask = mask;
         Components = new T[capacity];
         Hosts = new HostHandle[capacity];
         Roster = new int[capacity];

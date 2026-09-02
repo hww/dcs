@@ -2,8 +2,8 @@ using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
 
-// Автоматический калькулятор-регистратор типовpublic 
-static class ComponentType<T> where T : struct
+// Автоматический калькулятор-регистратор типов
+public static class ComponentType<T> where T : struct
 {
     public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
 }

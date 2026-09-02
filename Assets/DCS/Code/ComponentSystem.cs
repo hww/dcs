@@ -49,6 +49,14 @@ public enum EUpdateStage
     PostUpdate
 }
 
+public enum EAsyncUpdateStage 
+{
+    None,
+    Update,
+    FixedUpdate,
+    PostUpdate
+}
+
 public static class DynamicComponentSystem
 {
     public static ComponentHandle Get<T>(HostHandle host_handle, Chain chain) where T : struct
@@ -97,7 +105,7 @@ public static class DynamicComponentSystem
         chain.FreeChain(host_handle);
     }
 
-    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain)
+    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain, uint mask = 0)
     {
         switch (stage)
         {
