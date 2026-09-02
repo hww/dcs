@@ -5,7 +5,7 @@ using UnityEngine;
 // Интерфейс для базового пула (управление жизненным циклом из Chain)
 public interface IComponentPool
 {
-    void SystemFree(HostHandle hostHandle, Chain chain, int rosterId);
+    void SystemFree(HostHandle hostHandle, HostChainManager chain, int rosterId);
     void ClearFramePool();
     void SystemDeliver(int denseIndex, MessageHandle msgHandle); // <- Добавить
 }
@@ -69,21 +69,19 @@ public class ComponentManager<T> : IComponentPool where T : struct
         throw new System.InvalidCastException($"DCS ValidCast Error: Хэндл устарел для пула {_componentType.Name}");
     }
 
-    public ComponentHandle Allocate(HostHandle host_handle, Chain chain) => Allocate(host_handle, chain, null);
+    public ComponentHandle Allocate(HostHandle host_handle, HostChainManager chain) => Allocate(host_handle, chain, null);
 
-    public ComponentHandle Allocate(HostHandle host_handle, Chain chain, object prius) 
+       public ComponentHandle Allocate(HostHandle host_handle, HostChainManager chain, object prius) 
     {
         if (Partition >= Components.Length)
             throw new System.Exception($"DCS Error: Превышена емкость пула для {_componentType.Name}!");
 
-        // Движение по списку свободных слотов строго через поле .Next
         int rosterIndex = (_freeRosterHead != -1) ? _freeRosterHead : _rosterIncr++;
         if (_freeRosterHead != -1) 
-            _freeRosterHead = Roster[_freeRosterHead].Next; // Берем следующий свободный из Next
+            _freeRosterHead = Roster[_freeRosterHead].Next; 
 
         int denseIndex = Partition++;
         
-        // Заполняем данные активного элемента в ростере
         Roster[rosterIndex].Index = denseIndex;
         Roster[rosterIndex].Generation++; 
         Roster[rosterIndex].Host = host_handle; 
@@ -93,7 +91,6 @@ public class ComponentManager<T> : IComponentPool where T : struct
         ref T comp = ref Components[denseIndex];
         comp = default;
 
-        // Записываем обратный индекс в компонент
         if (comp is IDcsComponent dcsComp)
         {
             dcsComp.RosterIndex = rosterIndex;
@@ -102,49 +99,41 @@ public class ComponentManager<T> : IComponentPool where T : struct
         if (prius != null && comp is IDcsInitializable initializable) 
             initializable.Init(prius);
 
-        chain.Add(host_handle, rosterIndex, _poolId, currentGen);
-        return new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        // ИСПРАВЛЕНО: Собираем хэндл и передаем в типизированный Add
+        ComponentHandle handle = new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        chain.Add(host_handle, handle, _poolId);
+        
+        return handle;
     }
 
-    // Системный мост для Chain.FreeChain
-    void IComponentPool.SystemFree(HostHandle hostHandle, Chain chain, int rosterId)
-    {
-        ComponentHandle handle = new ComponentHandle { Id = rosterId, Generation = Roster[rosterId].Generation };
-        Free(hostHandle, chain, ref handle);
-    }
-
-    public void Free(HostHandle host_handle, Chain chain, ref ComponentHandle component_handle) 
+    public void Free(HostHandle host_handle, HostChainManager chain, ref ComponentHandle component_handle) 
     {
         int rosterIndexToDelete = component_handle.Id; 
         int denseIndexToDelete = Roster[rosterIndexToDelete].Index;
 
-        // Удаляем из Chain, забирая Host прямо из Ростера
-        chain.Remove(Roster[rosterIndexToDelete].Host, rosterIndexToDelete, _poolId);
+        // ИСПРАВЛЕНО: Передаем хэндл целиком вместо сырого int индекса
+        chain.Remove(Roster[rosterIndexToDelete].Host, component_handle, _poolId);
 
-        // Инвалидируем и возвращаем слот в список свободных через .Next
         Roster[rosterIndexToDelete].Generation++;
-        Roster[rosterIndexToDelete].Next = _freeRosterHead; // Старая голова становится следующей в Next
-        _freeRosterHead = rosterIndexToDelete;              // Текущий слот становится новой головой
+        Roster[rosterIndexToDelete].Next = _freeRosterHead; 
+        _freeRosterHead = rosterIndexToDelete;              
 
         Partition--;
         int denseIndexToMove = Partition; 
 
-        // Рокировка (Swap-Back)
         if (denseIndexToDelete != denseIndexToMove)
         {
             Components[denseIndexToDelete] = Components[denseIndexToMove];
 
-            // Читаем RosterIndex из компонента, который переместили
             if (Components[denseIndexToDelete] is IDcsComponent movingComp)
             {
                 int movingRosterIndex = movingComp.RosterIndex;
-                
-                // Обновляем индекс в ростере для перемещенного компонента
                 Roster[movingRosterIndex].Index = denseIndexToDelete;
             }
         }
         component_handle = default;
     }
+
 
     public virtual void ClearFramePool()
     {
@@ -162,4 +151,11 @@ public class ComponentManager<T> : IComponentPool where T : struct
         }
     }
 
+    // Системный мост для HostChainManager.FreeChain
+    void IComponentPool.SystemFree(HostHandle hostHandle, HostChainManager chain, int rosterId)
+    {
+        // ИСПРАВЛЕНО: Извлекаем поколение из структуры RosterItem под типом HostChainManager
+        ComponentHandle handle = new ComponentHandle { Id = rosterId, Generation = Roster[rosterId].Generation };
+        Free(hostHandle, chain, ref handle);
+    }
 }

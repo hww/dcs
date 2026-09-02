@@ -64,13 +64,16 @@ public struct MonsterBrainProcess : IComponentData, IDcsMessageReceiver
 // =========================================================================
 public class DCSMessageTest : MonoBehaviour
 {
-    private Chain _chain;
+    private HostChainManager _hostChain;
+    private TypeChainManager _typeChain;
     private SubscriptionManager _subManager;
 
     private HostHandle _player;
     private HostHandle _monster;
     
     private ComponentHandle _monsterProcessHandle;
+
+    private TypeChainManager _typeChainManager;
 
     private void Awake()
     {
@@ -80,7 +83,9 @@ public class DCSMessageTest : MonoBehaviour
 
     private void Start()
     {
-        _chain = new Chain();
+        _typeChainManager = new TypeChainManager();
+        _hostChain = new HostChainManager();
+        _typeChain = new TypeChainManager();
         
         // Теперь подписками заведует выделенный SubscriptionManager (TODO 6)
         _subManager = new SubscriptionManager(1000);
@@ -90,23 +95,23 @@ public class DCSMessageTest : MonoBehaviour
         _monster = new HostHandle { Id = 2, Generation = 1 };
 
         // Рождаем персистентный Процесс-Автомат для Монстра в его пуле памяти
-        _monsterProcessHandle = DynamicComponentSystem.Allocate<MonsterBrainProcess>(_monster, _chain);
+        _monsterProcessHandle = DynamicComponentSystem.Allocate<MonsterBrainProcess>(_monster, _hostChain);
 
         // =================================================================
         // ТЕСТ 1: РЕЖИМ ПО ПОДПИСКЕ (Poll) — Опрос пространств имен
         // =================================================================
         // Монстр подписывается на ТИП сообщения LocationEvent.
         // Он передает хэндл своего Процесса-Слушателя и битфилд-канал ZoneАlert (0 мусора!)
-        _subManager.AllocateSubscription<LocationEvent, MonsterBrainProcess>(
+         _subManager.AllocateSubscription<LocationEvent, MonsterBrainProcess>(
             _monster, 
             _monsterProcessHandle, 
             GameChannels.TriggerZone, 
-            _chain
-        );
-
-        // Симулируем, что Игрок зашел в Зону 55. 
+            _hostChain,
+            _typeChain
+        );   
+              // Симулируем, что Игрок зашел в Зону 55. 
         // Система триггеров выделяет событие в пуле, привязывает к Игроку и маркирует битфилдом канала!
-        ComponentHandle hLoc = DynamicComponentSystem.Allocate<LocationEvent>(_player, _chain);
+        ComponentHandle hLoc = DynamicComponentSystem.Allocate<LocationEvent>(_player, _hostChain);
         ref LocationEvent locData = ref DynamicComponentSystem.ResolveHandle<LocationEvent>(hLoc);
         locData.ZoneId = 55;
         locData.NamespaceMask = GameChannels.TriggerZone; // Помечаем событие битовой маской канала
@@ -117,7 +122,7 @@ public class DCSMessageTest : MonoBehaviour
         // =================================================================
         // Монстр бьет Игрока. Выделяем ивент урона, привязываем его к Игроку за O(1) через Chain.
         // Никаких диспетчеров для Notify-вспышек больше нет!
-        ComponentHandle hDmgAlloc = DynamicComponentSystem.Allocate<DamageEvent>(_player, _chain);
+        ComponentHandle hDmgAlloc = DynamicComponentSystem.Allocate<DamageEvent>(_player, _hostChain);
         ref DamageEvent dmgAllocData = ref DynamicComponentSystem.ResolveHandle<DamageEvent>(hDmgAlloc);
         dmgAllocData.Amount = 45f;
     }
@@ -125,20 +130,18 @@ public class DCSMessageTest : MonoBehaviour
     private void Update()
     {
         // 1. В начале кадра система фильтрует покадровые пулы событий по битовым маскам (Phase A: Gather)
-        EventSystem.PollEvents<LocationEvent>(_subManager);
+        EventSystem.ProcessAndDeliverEvents<LocationEvent>(_subManager, _typeChainManager);
         
         // Если в игре появится другое событие, программист просто добавит строку:
         // EventSystem.PollEvents&lt;DamageEvent&gt;(_subManager);
 
         // ... Игровой процесс (Обсчет физики, коллизий, ИИ) ...
 
-        // 2. Доставка событий Процессам-Получателям без мусора (Phase B: Deliver)
-        EventSystem.DeliverEvents(_chain);
 
 
         // --- РЕЖИМ БЕЗ ПОДПИСКИ (Notify / Чистокровный пуллинг функции Get по Коэну) ---
         // Система здоровья (HealthSystem) в свою фазу точечно забирает урон из цепочки Игрока
-        ComponentHandle hDamage = DynamicComponentSystem.Get<DamageEvent>(_player, _chain);
+        ComponentHandle hDamage = DynamicComponentSystem.Get<DamageEvent>(_player, _hostChain);
         if (!hDamage.IsNull)
         {
             ref DamageEvent damageData = ref DynamicComponentSystem.ResolveHandle<DamageEvent>(hDamage);
@@ -147,7 +150,7 @@ public class DCSMessageTest : MonoBehaviour
                                   $"точечно извлекла урон из Chain: {damageData.Amount}");
             
             // Забираем урон и мгновенно очищаем ноду из цепочки, возвращая во FreeList
-            DynamicComponentSystem.Free<DamageEvent>(_player, _chain, ref hDamage);
+            DynamicComponentSystem.Free<DamageEvent>(_player, _hostChain, ref hDamage);
         }
 
         // В самом конце кадра очищаем покадровые EVE-пулы (Phase C: Clear)

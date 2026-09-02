@@ -17,87 +17,55 @@ public static class EventSystem
     private static int _invokeCount = 0;
 
     /// <summary>
-    /// Фаза А: Сбор и фильтрация событий по маскам пространств имен (Namespaces)
+    /// Новая реактивная фаза кадра: итерируем пул событий и доставляем их по чейну типов подписок
     /// </summary>
-    public static void PollEvents<TEvent>(SubscriptionManager subManager) where TEvent : struct, IEventData
+    public static void ProcessAndDeliverEvents<TEvent>(SubscriptionManager subManager, TypeChainManager typeChain) 
+        where TEvent : struct, IEventData
     {
         int eventTypeId = ComponentType<TEvent>.Id;
-        
+
+        // 1. Получаем менеджер пула конкретного типа событий
         var eventPool = (EventManager<TEvent>)ComponentRegistry.Pools[eventTypeId]; 
         if (eventPool.Partition == 0) return; 
 
-        int subIdx = subManager.GetTypeChainHead(eventTypeId);
+        // 2. Извлекаем голову цепочки подписок для этого ТИПА события ОДИН раз
+        int subChainIndex = typeChain.GetTypeChainHead(eventTypeId);
+        if (subChainIndex == -1) return; // На этот ивент никто не подписан, уходим
 
-        while (subIdx >= 0)
+        // 3. Линейно перебираем все сообщения в плотном пуле кадра
+        for (int j = 0; j < eventPool.Partition; j++)
         {
-            ref SubscriptionNode sub = ref subManager.Components[subIdx];
+            ref TEvent ev = ref eventPool.Components[j];
 
-            for (int j = 0; j < eventPool.Partition; j++)
-            {
-                ref TEvent ev = ref eventPool.Components[j];
-
-                if ((ev.NamespaceMask & sub.NamespaceMask) != 0)
-                {
-                    if (_invokeCount >= _invokeList.Length) return;
-
-                    // ИСПРАВЛЕНО: Данные хоста и поколения теперь берутся из структуры RosterItem
-                    _invokeList[_invokeCount] = new InvokeRecord
-                    {
-                        ReceiverHost = eventPool.Roster[j].Host,
-                        ReceiverProcessHandle = sub.ProcessHandle,
-                        ReceiverProcessTypeId = sub.ProcessTypeId,
-                        ComponentId = j, // Для покадровых событий denseIndex равен rosterIndex
-                        ComponentGeneration = eventPool.Roster[j].Generation
-                    };
-                    _invokeCount++;
-                }
-            }
-            subIdx = sub.NextInTypeChain;
-        }
-    }
-    
-    /// <summary>
-    /// Фаза Б: Чистая полиморфная доставка БЕЗ МУСОРА И БЕЗ БОКСИНГА через SystemDeliver
-    /// </summary>
-    public static void DeliverEvents(Chain chain)
-    {
-        for (int i = 0; i < _invokeCount; i++)
-        {
-            InvokeRecord record = _invokeList[i];
-
-            // Собираем полиморфный "паспорт" сообщения
+            // Собираем паспорт сообщения для полиморфной доставки
             MessageHandle msgHandle = new MessageHandle
             {
-                TypeId = record.ReceiverProcessTypeId,
-                ComponentId = record.ComponentId,
-                Generation = record.ComponentGeneration
+                TypeId = eventTypeId,
+                ComponentId = j,
+                Generation = eventPool.Roster[j].Generation
             };
 
-            // Получаем пул компонента-процесса (автомата), который подписался на событие
-            IComponentPool targetPool = ComponentRegistry.Pools[record.ReceiverProcessTypeId];
-            
-            // ИСПРАВЛЕНО: Находим плотный индекс самого Процесса-Автомата внутри его пула.
-            // Нам нужно достать его через хэндл процесса (ReceiverProcessHandle.Id)
-            // Но так как targetPool скрыт за интерфейсом IComponentPool, нам нужен способ 
-            // передать туда запрос. Самый чистый и прямой путь — достать плотный индекс 
-            // из ростера этого пула, если мы приведем его к базовому ComponentManager,
-            // либо вызывать доставку напрямую по хэндлу.
-            // Поскольку у нас есть метод SystemDeliver(int denseIndex, MessageHandle msgHandle),
-            // мы временно кастим к базовому менеджеру без привязки к конкретной T, чтобы узнать индекс:
-            if (targetPool is IComponentPool pool)
+            // 4. Идем по выделенной изолированной цепочке подписок этого типа в TypeChainManager
+            int currentIndex = subChainIndex;
+            while (currentIndex >= 0)
             {
-                // Для доставки нам нужен denseIndex компонента-приемника. 
-                // Мы берем хэндл процесса, проверяем валидность поколения и достаем DenseIndex.
-                // Чтобы не плодить касты, мы можем расширить SystemDeliver, передавая туда сразу 
-                // ComponentHandle процесса-приемника, а пул сам внутри себя сделает быстрый Resolve.
+                ref TypeChainNode chainNode = ref typeChain.GetNode(currentIndex);
                 
-                // Давай сделаем это максимально элегантно: пускай пул сам найдет свой denseIndex по Id хэндла:
-                int receiverRosterId = record.ReceiverProcessHandle.Id;
-                
-                // Вызываем наше исправленное, легальное системное API доставки прямо в пул:
-                targetPool.SystemDeliver(receiverRosterId, msgHandle);
+                // Извлекаем саму структуру подписки из её менеджера по стабильному хэндлу
+                ref SubscriptionNode sub = ref subManager.ResolveHandle(chainNode.SubscriptionHandle);
+
+                // Проверяем совпадение масок пространств имен (NamespaceMask)
+                if ((ev.NamespaceMask & sub.NamespaceMask) != 0)
+                {
+                    // Точечная полиморфная доставка прямо в пул Процесса-Автомата
+                    IComponentPool targetPool = ComponentRegistry.Pools[chainNode.ProcessTypeId];
+                    
+                    // Пул сам сделает мгновенную валидацию по rosterId и вызовет ReceiveMessage
+                    targetPool.SystemDeliver(sub.ProcessHandle.Id, msgHandle);
+                }
+
+                currentIndex = chainNode.Next; // Сдвиг к следующей подписке в цепи типа
             }
         }
-        _invokeCount = 0;
     }
 }

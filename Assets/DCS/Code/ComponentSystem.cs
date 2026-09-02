@@ -19,13 +19,6 @@ public interface IDcsInitializable
     void Init(object  prius);
 }
 
-// Игровой объект (абсолютно невесом)
-public struct DCHost 
-{
-    public int Id;
-    public int Generation;
-    public int FirstComponent;
-}
 
 public struct HostHandle 
 {
@@ -59,15 +52,15 @@ public enum EAsyncUpdateStage
 
 public static class DynamicComponentSystem
 {
-    public static ComponentHandle Get<T>(HostHandle host_handle, Chain chain) where T : struct
+    public static ComponentHandle Get<T>(HostHandle host_handle, HostChainManager chain) where T : struct
     {
-        // ИСПРАВЛЕНО: Вместо тяжелого typeof(T) мгновенно пробрасываем сгенерированный int ID типа!
+        // ИСПРАВЛЕНО: Вместо typed.Id и typed.Generation возвращаем агрегированный хэндл typed.Component
         ChainNode typed = chain.GetTypedHandle(host_handle, ComponentType<T>.Id);
-        return new ComponentHandle { Id = typed.Id, Generation = typed.Generation };
+        return typed.Component;
     }
 
     // ИСПРАВЛЕНО: Добавлен строго типизированный вызов GetPool<T>()
-    public static ComponentHandle Allocate<T>(HostHandle host_handle, Chain chain) where T : struct
+    public static ComponentHandle Allocate<T>(HostHandle host_handle, HostChainManager chain) where T : struct
     {
         return ComponentRegistry.GetPool<T>().Allocate(host_handle, chain);
     }
@@ -95,28 +88,30 @@ public static class DynamicComponentSystem
     }
 
     // ИСПРАВЛЕНО: Метод переведен в generic-формат Free<T> с вызовом GetPool<T>()
-    public static void Free<T>(HostHandle host_handle, Chain chain, ref ComponentHandle component_handle) where T : struct
+    public static void Free<T>(HostHandle host_handle, HostChainManager chain, ref ComponentHandle component_handle) where T : struct
     {
         ComponentRegistry.GetPool<T>().Free(host_handle, chain, ref component_handle);
     }
 
-    public static void FreeChain(HostHandle host_handle, Chain chain)
+    public static void FreeChain(HostHandle host_handle, HostChainManager chain)
     {
         chain.FreeChain(host_handle);
     }
 
-    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain, uint mask = 0)
+    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, TypeChainManager typeChain, HostChainManager chain, uint mask = 0)
     {
         switch (stage)
         {
             case EUpdateStage.Update:
-                EventSystem.PollEvents<LocationEvent>(subManager);
+                // Передаем оба менеджера в итератор ивентов
+                EventSystem.ProcessAndDeliverEvents<LocationEvent>(subManager, typeChain);
                 break;
 
             case EUpdateStage.PostUpdate:
-                EventSystem.DeliverEvents(chain);
+                // ИСПРАВЛЕНО: В PostUpdate доставка сообщений идет по цепочкам типов, а не хостов
+                EventSystem.ProcessAndDeliverEvents<LocationEvent>(subManager, typeChain);
 
-                // ИСПРАВЛЕНО: Никакой рефлексии в цикле очистки кадров! Прямой вызов интерфейса
+                // Никакой рефлексии в цикле очистки кадров! Прямой вызов интерфейса
                 for (int i = 0; i < ComponentRegistry.PollTypesCount; i++)
                 {
                     ComponentRegistry.Pools[ComponentRegistry.PollTypeIds[i]].ClearFramePool();

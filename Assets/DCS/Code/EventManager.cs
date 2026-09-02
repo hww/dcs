@@ -4,36 +4,34 @@ public class EventManager<T> : ComponentManager<T> where T : struct, IEventData
     public EventManager(int capacity) : base(capacity, EUpdateStage.Update, EAsyncUpdateStage.None, 0) { }
 
     // Метод Allocate для покадровых событий (идут строго подряд без дыр)
-    public ComponentHandle AllocateEvent(HostHandle host_handle, uint namespaceMask, Chain chain)
+    public ComponentHandle AllocateEvent(HostHandle host_handle, uint namespaceMask, HostChainManager chain)
     {
         if (Partition >= Components.Length) 
             throw new System.Exception("DCS Error: Превышена емкость пул-событий!");
 
-        // Для ивентов Roster-индекс равен dense-индексу, так как дыр в памяти кадра нет
         int denseIndex = Partition;
         int rosterIndex = denseIndex; 
         Partition++;
 
-        // Заполняем паспорт элемента в структуре RosterItem
         Roster[rosterIndex].Index = denseIndex;
         Roster[rosterIndex].Generation++;
-        Roster[rosterIndex].Host = host_handle; // Пишем хост в ростер
+        Roster[rosterIndex].Host = host_handle; 
         
         int currentGen = Roster[rosterIndex].Generation;
 
         ref T ev = ref Components[denseIndex];
         ev = default;
-        ev.NamespaceMask = namespaceMask; // Жестко пишем маску в структуру
+        ev.NamespaceMask = namespaceMask; 
 
-        // Компонент-событие обязан знать свой RosterIndex для общей консистентности системы
         if (ev is IDcsComponent dcsComp)
         {
             dcsComp.RosterIndex = rosterIndex;
         }
 
-        // Вшиваем связь в Chain, используя сгенерированный PoolId (Id типа)
-        chain.Add(host_handle, rosterIndex, ComponentType<T>.Id, currentGen);
+        // ИСПРАВЛЕНО: Упаковка в хэндл и вызов перегруженного метода Add с 3 аргументами
+        ComponentHandle handle = new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        chain.Add(host_handle, handle, ComponentType<T>.Id);
 
-        return new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        return handle;
     }
 }

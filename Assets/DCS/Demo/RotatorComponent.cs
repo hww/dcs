@@ -12,7 +12,7 @@ public struct RotatorComponent
 public static class RotatorSystem
 {
     // Обновление всех компонентов вращения за один плоский проход по памяти
-    public static void Update(float deltaTime, Chain chain)
+    public static void Update(float deltaTime, HostChainManager chain)
     {
         // Мгновенно берем менеджер пула для RotatorComponent
         ComponentManager<RotatorComponent> pool = ComponentRegistry.GetPool<RotatorComponent>();

@@ -8,7 +8,7 @@ public class DCSComponentsTest : MonoBehaviour
     public float MaxRotationSpeed = 180f;
 
     // Глобальная таблица связей
-    private Chain _chain;
+    private HostChainManager _chain;
 
     // Массив для хранения ссылок на визуальные объекты Unity, 
     // чтобы система вращения могла быстро найти их по Host ID
@@ -19,8 +19,8 @@ public class DCSComponentsTest : MonoBehaviour
         ComponentRegistry.InitializeAllPools();
 
         // 1. Инициализируем системные таблицы
-        _chain = new Chain();
-        _visualRegistry = new GameObject[Chain.MaxGameObjects];
+        _chain = new HostChainManager();
+        _visualRegistry = new GameObject[HostManager.MaxGameObjects];
 
         // 2. Генерируем сетку объектов
         int hostIdCounter = 0;
@@ -29,7 +29,7 @@ public class DCSComponentsTest : MonoBehaviour
         {
             for (int z = 0; z < N; z++)
             {
-                if (hostIdCounter >= Chain.MaxGameObjects) break;
+                if (hostIdCounter >= HostManager.MaxGameObjects) break;
 
                 // Создаем обычный примитив Unity (куб) для визуализации
                 GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
