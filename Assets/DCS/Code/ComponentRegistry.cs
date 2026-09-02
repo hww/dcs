@@ -12,33 +12,31 @@ public static class ComponentRegistry
 {
     private static int _typeCounter = 0;
     public const int MaxComponentTypes = 200;
-    public static readonly object[] Pools = new object[MaxComponentTypes];
+    
+    // ИСПРАВЛЕНО: Теперь храним строго типизированные для ядра интерфейсы вместо сырых object
+    public static readonly IComponentPool[] Pools = new IComponentPool[MaxComponentTypes];
     public static readonly int[] PollTypeIds = new int[MaxComponentTypes];
     public static int PollTypesCount = 0;
 
     public static void InitializeAllPools()
     {
         var types = Assembly.GetExecutingAssembly().GetTypes();
-
         foreach (var type in types)
         {
             var poolAttribute = type.GetCustomAttribute<DcsPoolAttribute>();
-            
             if (type.IsValueType && poolAttribute != null)
             {
                 var genericComponentType = typeof(ComponentType<>).MakeGenericType(type);
                 System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(genericComponentType.TypeHandle);
 
-                if (type == typeof(LocationEvent))
+                if (typeof(IEventData).IsAssignableFrom(type))
                 {
-                    // ИСПРАВЛЕНО: Указаны явные флаги System.Reflection.BindingFlags и правильный генерик-тип
-                    var idField = genericComponentType.GetField(nameof(ComponentType<LocationEvent>.Id), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    var idField = genericComponentType.GetField("Id", BindingFlags.Public | BindingFlags.Static);
                     PollTypeIds[PollTypesCount++] = (int)idField.GetValue(null);
                 }
             }
         }
-
-        UnityEngine.Debug.Log($"<color=green>[DCS SUCCESS]</color> Все пулы пред-выделены без спайков! Всего типов: {_typeCounter}");
+        Debug.Log($"<color=green>[DCS SUCCESS]</color> Пулы выделены. Всего типов: {_typeCounter}");
     }
 
     public static int RegisterNewType<T>() where T : struct
@@ -50,13 +48,20 @@ public static class ComponentRegistry
         var attr = typeof(T).GetCustomAttribute<DcsPoolAttribute>();
         if (attr != null) capacity = attr.Capacity;
         
-        Pools[newId] = new ComponentManager<T>(capacity);
+        if (typeof(IEventData).IsAssignableFrom(typeof(T)))
+        {
+            var eventManagerType = typeof(EventManager<>).MakeGenericType(typeof(T));
+            Pools[newId] = (IComponentPool)System.Activator.CreateInstance(eventManagerType, capacity);
+        }
+        else
+        {
+            Pools[newId] = new ComponentManager<T>(capacity);
+        }
         return newId;
     }
 
     public static ComponentManager<T> GetPool<T>() where T : struct
     {
-        int typeId = ComponentType<T>.Id;
-        return (ComponentManager<T>)Pools[typeId];
+        return (ComponentManager<T>)Pools[ComponentType<T>.Id];
     }
 }

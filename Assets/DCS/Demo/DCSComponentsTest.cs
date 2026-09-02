@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class GridGenerator : MonoBehaviour
+public class DCSComponentsTest : MonoBehaviour
 {
     [Header("Настройки сетки")]
     public int N = 10; // Размер сетки N x N (итого N^2 объектов)
@@ -51,8 +51,9 @@ public class GridGenerator : MonoBehaviour
 
                 // МАГИЯ API: Выделяем компонент вращения в пуле за O(1)
                 // Система сама создаст пул, пропишет связи в _chain и вернет хэндл
-                ComponentHandle rotatorHandle = DynamicComponentSystem.Allocate<RotatorComponent>(host, ref _chain, prius: randomSpeed);
-
+                ComponentHandle rotatorHandle = DynamicComponentSystem.Allocate<RotatorComponent>(host, _chain);
+                ref RotatorComponent rotator = ref DynamicComponentSystem.ResolveHandle<RotatorComponent>(rotatorHandle);
+                rotator.Speed = Random.Range(30f, MaxRotationSpeed);
                 hostIdCounter++;
             }
         }

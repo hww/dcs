@@ -7,7 +7,10 @@ public struct ChainNode
 {
     public int Id;          // Стабильный индекс компонента в его родном пуле
     public int Generation;  // Поколение для валидации
-    public System.Type Type;// Тип компонента (System.Type)
+    
+    // ИСПРАВЛЕНО (TODO 3): Вместо тяжелого System.Type храним быстрый целочисленный ID типа
+    public int TypeId;      
+    
     public int Next;        // Индекс СЛЕДУЮЩЕЙ ноды в глобальном массиве Chain (или -1)
     
     public bool IsNull => Generation == 0;
@@ -19,61 +22,50 @@ public class Chain
     public const int MaxGameObjects = 100000;
     public const int MaxComponents = 500000; 
 
-    // СИСТЕМНЫЙ МАССИВ ВСЕХ ИГРОВЫХ ОБЪЕКТОВ (Hosts)
     public static readonly DCHost[] GlobalHosts = new DCHost[MaxGameObjects];
-
     private readonly ChainNode[] _components = new ChainNode[MaxComponents];
     private int _firstFree;
 
     public Chain() 
     {
         _firstFree = 0;
-        
-        // Инициализируем FreeList нод связей
         for (int i = 0; i < MaxComponents; i++) 
         {
             _components[i] = new ChainNode { Next = i + 1, Id = -1 }; 
         }
         _components[MaxComponents - 1].Next = -1;
 
-        // Инициализируем массив хостов (изначально у всех цепочки пусты)
         for (int i = 0; i < MaxGameObjects; i++)
         {
             GlobalHosts[i] = new DCHost { Id = i, Generation = 1, FirstComponent = -1 };
         }
     }
 
-    // Добавление компонента в цепочку за O(1) БЕЗ ЛИМИТОВ
-    public void Add(HostHandle hostHandle, int componentId, System.Type type, int generation) 
+    public void Add(HostHandle hostHandle, int componentId, int typeId, int generation) 
     {
-        // 1. Проверяем дубликаты
-        if (Contains(hostHandle, componentId, type)) return;
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+        if (Contains(hostHandle, componentId, typeId)) return;
         
-        // 2. Забираем чистую ноду из FreeList
         if (_firstFree == -1) throw new System.Exception("DCS Error: Закончилась память под ChainNode!");
 
         int allocatedNodeIndex = _firstFree;
         _firstFree = _components[allocatedNodeIndex].Next;
 
-        // 3. Заполняем ноду данными компонента
         ref ChainNode node = ref _components[allocatedNodeIndex];
         node.Id = componentId;
         node.Generation = generation;
-        node.Type = type;
+        node.TypeId = typeId;
 
-        // 4. МГНОВЕННОЕ РАЗРЕШЕНИЕ ХОСТА: берем прямую ref-ссылку на живой DCHost из массива
         ref DCHost host = ref GlobalHosts[hostHandle.Id];
-
-        // 5. ВШИВАЕМ НОДУ В НАЧАЛО ЦЕПОЧКИ ЖИВОГО ОБЪЕКТА
         node.Next = host.FirstComponent; 
         host.FirstComponent = allocatedNodeIndex; 
     }
 
-    // Удаление ноды из цепочки за O(1) и возвращение во FreeList
-    public void Remove(HostHandle hostHandle, int componentId, System.Type type) 
+    public void Remove(HostHandle hostHandle, int componentId, int typeId) 
     {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+
         ref DCHost host = ref GlobalHosts[hostHandle.Id];
-        
         int currentIndex = host.FirstComponent;
         int previousIndex = -1;
 
@@ -81,53 +73,76 @@ public class Chain
         {
             ref ChainNode node = ref _components[currentIndex];
 
-            if (node.Id == componentId && node.Type == type) 
+            if (node.Id == componentId && node.TypeId == typeId) 
             {
-                if (previousIndex == -1)
-                {
-                    host.FirstComponent = node.Next;
-                }
-                else
-                {
-                    _components[previousIndex].Next = node.Next;
-                }
+                if (previousIndex == -1) host.FirstComponent = node.Next;
+                else _components[previousIndex].Next = node.Next;
 
                 node = default; 
                 _components[currentIndex].Next = _firstFree;
                 _firstFree = currentIndex;
-
                 return;
             }
-
             previousIndex = currentIndex;
             currentIndex = node.Next;
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Contains(HostHandle hostHandle, int componentId, System.Type type) 
+    public bool Contains(HostHandle hostHandle, int componentId, int typeId) 
     {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return false;
+
         int currentIndex = GlobalHosts[hostHandle.Id].FirstComponent;
-        
         while (currentIndex >= 0) 
         {
             ref ChainNode node = ref _components[currentIndex];
-            if (node.Id == componentId && node.Type == type) return true;
+            if (node.Id == componentId && node.TypeId == typeId) return true;
             currentIndex = node.Next;
         }
         return false;
     }
 
-    public ChainNode GetTypedHandle(HostHandle hostHandle, System.Type type)
+    public ChainNode GetTypedHandle(HostHandle hostHandle, int typeId)
     {
-        int currentIndex = GlobalHosts[hostHandle.Id].FirstComponent;
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return default;
 
+        int currentIndex = GlobalHosts[hostHandle.Id].FirstComponent;
         while (currentIndex >= 0) 
         {
             ref ChainNode node = ref _components[currentIndex];
-            if (node.Type == type) return node;
+            if (node.TypeId == typeId) return node;
             currentIndex = node.Next;
         }
         return default;
     }
+
+    // ИСПРАВЛЕНО: Рефлексия полностью вырезана! Вызов идет через интерфейс IComponentPool
+public void FreeChain(HostHandle hostHandle)
+{
+    if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+
+    ref DCHost host = ref GlobalHosts[hostHandle.Id];
+    int currentIndex = host.FirstComponent;
+
+    while (currentIndex >= 0)
+    {
+        ref ChainNode node = ref _components[currentIndex];
+        
+        IComponentPool pool = ComponentRegistry.Pools[node.TypeId];
+        
+        // ИСПРАВЛЕНО: Передаем просто 'this' без модификатора ref
+        pool.SystemFree(hostHandle, this, node.Id);
+
+        int nextIndex = node.Next;
+        node = default;
+        _components[currentIndex].Next = _firstFree;
+        _firstFree = currentIndex;
+
+        currentIndex = nextIndex;
+    }
+
+    host.FirstComponent = -1;
+    host.Generation++; 
+}
 }

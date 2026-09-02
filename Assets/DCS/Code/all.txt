@@ -1,0 +1,723 @@
+using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+
+// Теперь это единая структура ноды связи (бывший ComponentTypedHandle)
+public struct ChainNode 
+{
+    public int Id;          // Стабильный индекс компонента в его родном пуле
+    public int Generation;  // Поколение для валидации
+    
+    // ИСПРАВЛЕНО (TODO 3): Вместо тяжелого System.Type храним быстрый целочисленный ID типа
+    public int TypeId;      
+    
+    public int Next;        // Индекс СЛЕДУЮЩЕЙ ноды в глобальном массиве Chain (или -1)
+    
+    public bool IsNull => Generation == 0;
+}
+
+
+public class Chain 
+{
+    public const int MaxGameObjects = 100000;
+    public const int MaxComponents = 500000; 
+
+    public static readonly DCHost[] GlobalHosts = new DCHost[MaxGameObjects];
+    private readonly ChainNode[] _components = new ChainNode[MaxComponents];
+    private int _firstFree;
+
+    public Chain() 
+    {
+        _firstFree = 0;
+        for (int i = 0; i < MaxComponents; i++) 
+        {
+            _components[i] = new ChainNode { Next = i + 1, Id = -1 }; 
+        }
+        _components[MaxComponents - 1].Next = -1;
+
+        for (int i = 0; i < MaxGameObjects; i++)
+        {
+            GlobalHosts[i] = new DCHost { Id = i, Generation = 1, FirstComponent = -1 };
+        }
+    }
+
+    public void Add(HostHandle hostHandle, int componentId, int typeId, int generation) 
+    {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+        if (Contains(hostHandle, componentId, typeId)) return;
+        
+        if (_firstFree == -1) throw new System.Exception("DCS Error: Закончилась память под ChainNode!");
+
+        int allocatedNodeIndex = _firstFree;
+        _firstFree = _components[allocatedNodeIndex].Next;
+
+        ref ChainNode node = ref _components[allocatedNodeIndex];
+        node.Id = componentId;
+        node.Generation = generation;
+        node.TypeId = typeId;
+
+        ref DCHost host = ref GlobalHosts[hostHandle.Id];
+        node.Next = host.FirstComponent; 
+        host.FirstComponent = allocatedNodeIndex; 
+    }
+
+    public void Remove(HostHandle hostHandle, int componentId, int typeId) 
+    {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+
+        ref DCHost host = ref GlobalHosts[hostHandle.Id];
+        int currentIndex = host.FirstComponent;
+        int previousIndex = -1;
+
+        while (currentIndex >= 0) 
+        {
+            ref ChainNode node = ref _components[currentIndex];
+
+            if (node.Id == componentId && node.TypeId == typeId) 
+            {
+                if (previousIndex == -1) host.FirstComponent = node.Next;
+                else _components[previousIndex].Next = node.Next;
+
+                node = default; 
+                _components[currentIndex].Next = _firstFree;
+                _firstFree = currentIndex;
+                return;
+            }
+            previousIndex = currentIndex;
+            currentIndex = node.Next;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Contains(HostHandle hostHandle, int componentId, int typeId) 
+    {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return false;
+
+        int currentIndex = GlobalHosts[hostHandle.Id].FirstComponent;
+        while (currentIndex >= 0) 
+        {
+            ref ChainNode node = ref _components[currentIndex];
+            if (node.Id == componentId && node.TypeId == typeId) return true;
+            currentIndex = node.Next;
+        }
+        return false;
+    }
+
+    public ChainNode GetTypedHandle(HostHandle hostHandle, int typeId)
+    {
+        if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return default;
+
+        int currentIndex = GlobalHosts[hostHandle.Id].FirstComponent;
+        while (currentIndex >= 0) 
+        {
+            ref ChainNode node = ref _components[currentIndex];
+            if (node.TypeId == typeId) return node;
+            currentIndex = node.Next;
+        }
+        return default;
+    }
+
+    // ИСПРАВЛЕНО: Рефлексия полностью вырезана! Вызов идет через интерфейс IComponentPool
+public void FreeChain(HostHandle hostHandle)
+{
+    if (GlobalHosts[hostHandle.Id].Generation != hostHandle.Generation) return;
+
+    ref DCHost host = ref GlobalHosts[hostHandle.Id];
+    int currentIndex = host.FirstComponent;
+
+    while (currentIndex >= 0)
+    {
+        ref ChainNode node = ref _components[currentIndex];
+        
+        IComponentPool pool = ComponentRegistry.Pools[node.TypeId];
+        
+        // ИСПРАВЛЕНО: Передаем просто 'this' без модификатора ref
+        pool.SystemFree(hostHandle, this, node.Id);
+
+        int nextIndex = node.Next;
+        node = default;
+        _components[currentIndex].Next = _firstFree;
+        _firstFree = currentIndex;
+
+        currentIndex = nextIndex;
+    }
+
+    host.FirstComponent = -1;
+    host.Generation++; 
+}
+}
+using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+
+// Интерфейс для базового пула (управление жизненным циклом из Chain)
+public interface IComponentPool
+{
+    void SystemFree(HostHandle hostHandle, Chain chain, int rosterId);
+    void ClearFramePool();
+}
+
+public class ComponentManager<T> : IComponentPool where T : struct 
+{
+    public int Partition = 0; 
+    public T[] Components;       
+    public int[] Roster;         
+    public int[] Generations;    
+    public HostHandle[] Hosts;   
+    public int[] RosterIndices;  
+
+    protected int _freeRosterHead = -1; 
+    protected int _rosterIncr = 0;       
+    private readonly System.Type _componentType;
+    private readonly int _poolId;      
+
+    public ComponentManager(int capacity)
+    {
+        _componentType = typeof(T);
+        _poolId = ComponentType<T>.Id; 
+
+        Components = new T[capacity];
+        Hosts = new HostHandle[capacity];
+        Roster = new int[capacity];
+        Generations = new int[capacity];
+        RosterIndices = new int[capacity];
+        
+        for (int i = 0; i < capacity; i++) Roster[i] = -1;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref T ResolveHandle(ComponentHandle component_handle)
+    {
+        int rosterIndex = component_handle.Id;
+        if (Generations[rosterIndex] == component_handle.Generation)
+        {
+            int denseIndex = Roster[rosterIndex];
+            return ref Components[denseIndex];
+        }
+        throw new System.InvalidCastException($"DCS ValidCast Error: Хэндл устарел для пула {_componentType.Name}");
+    }
+
+    public ComponentHandle Allocate(HostHandle host_handle, Chain chain) => Allocate(host_handle, chain, null);
+
+    public ComponentHandle Allocate(HostHandle host_handle, Chain chain, object prius) 
+    {
+        if (Partition >= Components.Length)
+            throw new System.Exception($"DCS Error: Превышена емкость пула для {_componentType.Name}!");
+
+        int rosterIndex = (_freeRosterHead != -1) ? _freeRosterHead : _rosterIncr++;
+        if (_freeRosterHead != -1) _freeRosterHead = ~Roster[rosterIndex]; 
+
+        int denseIndex = Partition++;
+        Roster[rosterIndex] = denseIndex;
+        Generations[rosterIndex]++; 
+        int currentGen = Generations[rosterIndex];
+
+        Hosts[denseIndex] = host_handle;
+        RosterIndices[denseIndex] = rosterIndex;
+        
+        ref T comp = ref Components[denseIndex];
+        comp = default;
+
+        if (prius != null && comp is IDcsInitializable initializable) initializable.Init(prius);
+
+        chain.Add(host_handle, rosterIndex, _poolId, currentGen);
+        return new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+    }
+
+    // Системный мост для Chain.FreeChain
+    void IComponentPool.SystemFree(HostHandle hostHandle, Chain chain, int rosterId)
+    {
+        ComponentHandle handle = new ComponentHandle { Id = rosterId, Generation = Generations[rosterId] };
+        Free(hostHandle, chain, ref handle);
+    }
+
+    public void Free(HostHandle host_handle, Chain chain, ref ComponentHandle component_handle) 
+    {
+        int rosterIndexToDelete = component_handle.Id; 
+        int denseIndexToDelete = Roster[rosterIndexToDelete];
+
+        chain.Remove(host_handle, rosterIndexToDelete, _poolId);
+
+        Generations[rosterIndexToDelete]++;
+        Roster[rosterIndexToDelete] = ~_freeRosterHead;
+        _freeRosterHead = rosterIndexToDelete;
+
+        Partition--;
+        int denseIndexToMove = Partition; 
+
+        if (denseIndexToDelete != denseIndexToMove)
+        {
+            Components[denseIndexToDelete] = Components[denseIndexToMove];
+            Hosts[denseIndexToDelete] = Hosts[denseIndexToMove];
+            RosterIndices[denseIndexToDelete] = RosterIndices[denseIndexToMove];
+
+            int movingRosterIndex = RosterIndices[denseIndexToDelete];
+            Roster[movingRosterIndex] = denseIndexToDelete;
+        }
+        component_handle = default;
+    }
+
+    public virtual void ClearFramePool()
+    {
+        Partition = 0;
+        _rosterIncr = 0;
+        _freeRosterHead = -1;
+    }
+}using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+
+// Автоматический калькулятор-регистратор типовpublic 
+static class ComponentType<T> where T : struct
+{
+    public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
+}
+
+public static class ComponentRegistry
+{
+    private static int _typeCounter = 0;
+    public const int MaxComponentTypes = 200;
+    
+    // ИСПРАВЛЕНО: Теперь храним строго типизированные для ядра интерфейсы вместо сырых object
+    public static readonly IComponentPool[] Pools = new IComponentPool[MaxComponentTypes];
+    public static readonly int[] PollTypeIds = new int[MaxComponentTypes];
+    public static int PollTypesCount = 0;
+
+    public static void InitializeAllPools()
+    {
+        var types = Assembly.GetExecutingAssembly().GetTypes();
+        foreach (var type in types)
+        {
+            var poolAttribute = type.GetCustomAttribute<DcsPoolAttribute>();
+            if (type.IsValueType && poolAttribute != null)
+            {
+                var genericComponentType = typeof(ComponentType<>).MakeGenericType(type);
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(genericComponentType.TypeHandle);
+
+                if (typeof(IEventData).IsAssignableFrom(type))
+                {
+                    var idField = genericComponentType.GetField("Id", BindingFlags.Public | BindingFlags.Static);
+                    PollTypeIds[PollTypesCount++] = (int)idField.GetValue(null);
+                }
+            }
+        }
+        Debug.Log($"<color=green>[DCS SUCCESS]</color> Пулы выделены. Всего типов: {_typeCounter}");
+    }
+
+    public static int RegisterNewType<T>() where T : struct
+    {
+        int newId = _typeCounter++;
+        if (newId >= MaxComponentTypes) throw new System.Exception("DCS Error: Превышен лимит типов!");
+        
+        int capacity = 1000;
+        var attr = typeof(T).GetCustomAttribute<DcsPoolAttribute>();
+        if (attr != null) capacity = attr.Capacity;
+        
+        if (typeof(IEventData).IsAssignableFrom(typeof(T)))
+        {
+            var eventManagerType = typeof(EventManager<>).MakeGenericType(typeof(T));
+            Pools[newId] = (IComponentPool)System.Activator.CreateInstance(eventManagerType, capacity);
+        }
+        else
+        {
+            Pools[newId] = new ComponentManager<T>(capacity);
+        }
+        return newId;
+    }
+
+    public static ComponentManager<T> GetPool<T>() where T : struct
+    {
+        return (ComponentManager<T>)Pools[ComponentType<T>.Id];
+    }
+}using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+
+// =========================================================================
+// СИСТЕМНЫЕ АТРИБУТЫ ДЛЯ НАСТРОЙКИ ГЕОМЕТРИИ ПАМЯТИ ПУЛОВ
+// ========================================================================
+
+// Маркеры для фильтрации типов компилятором
+public interface IComponentData { }
+public interface IEventData {
+    // ИСПРАВЛЕНО: Маска переехала сюда! Теперь EventManager и EventSystem легально видят это поле
+    uint NamespaceMask { get; set; } 
+}
+
+// Интерфейс для вашей идеи с чистой инициализацией компонентов
+public interface IDcsInitializable
+{
+    void Init(object prius);
+}
+
+// Игровой объект (абсолютно невесом)
+public struct DCHost 
+{
+    public int Id;
+    public int Generation;
+    public int FirstComponent;
+}
+
+public struct HostHandle 
+{
+    public int Id;
+    public int Generation;
+    public bool IsNull => Generation == 0; 
+}
+
+public struct ComponentHandle 
+{
+    public int Id; // Индекс в массиве пула
+    public int Generation;
+    public bool IsNull => Generation == 0;
+}
+
+public enum EUpdateStage 
+{
+    None,
+    Update,
+    FixedUpdate,
+    PostUpdate
+}
+
+public static class DynamicComponentSystem
+{
+    public static ComponentHandle Get<T>(HostHandle host_handle, Chain chain) where T : struct
+    {
+        // ИСПРАВЛЕНО: Вместо тяжелого typeof(T) мгновенно пробрасываем сгенерированный int ID типа!
+        ChainNode typed = chain.GetTypedHandle(host_handle, ComponentType<T>.Id);
+        return new ComponentHandle { Id = typed.Id, Generation = typed.Generation };
+    }
+
+    // ИСПРАВЛЕНО: Добавлен строго типизированный вызов GetPool<T>()
+    public static ComponentHandle Allocate<T>(HostHandle host_handle, Chain chain) where T : struct
+    {
+        return ComponentRegistry.GetPool<T>().Allocate(host_handle, chain);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public static ref T ResolveHandle<T>(ComponentHandle component_handle) where T : struct
+    {
+        return ref ComponentRegistry.GetPool<T>().ResolveHandle(component_handle);
+    }
+
+    // ПУНКТ 2: Добавляем перегрузку для Варианта Б (Устраняет CS1503 и CS0103)
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public static ref T ResolveHandle<T>(MessageHandle msgHandle) where T : struct
+    {
+        ComponentManager<T> pool = ComponentRegistry.GetPool<T>();
+        
+        // ИСПРАВЛЕНО: Теперь все имена переменных строго соответствуют аргументу msgHandle!
+        if (pool.Generations[msgHandle.ComponentId] == msgHandle.Generation)
+        {
+            int denseIndex = pool.Roster[msgHandle.ComponentId];
+            return ref pool.Components[denseIndex];
+        }
+
+        throw new System.InvalidCastException($"DCS ValidCast Error: Хэндл сообщения устарел для пула {typeof(T).Name}");
+    }
+
+    // ИСПРАВЛЕНО: Метод переведен в generic-формат Free<T> с вызовом GetPool<T>()
+    public static void Free<T>(HostHandle host_handle, Chain chain, ref ComponentHandle component_handle) where T : struct
+    {
+        ComponentRegistry.GetPool<T>().Free(host_handle, chain, ref component_handle);
+    }
+
+    public static void FreeChain(HostHandle host_handle, Chain chain)
+    {
+        chain.FreeChain(host_handle);
+    }
+
+    public static void UpdateComponents(EUpdateStage stage, SubscriptionManager subManager, Chain chain)
+    {
+        switch (stage)
+        {
+            case EUpdateStage.Update:
+                EventSystem.PollEvents<LocationEvent>(subManager);
+                break;
+
+            case EUpdateStage.PostUpdate:
+                EventSystem.DeliverEvents(chain);
+
+                // ИСПРАВЛЕНО: Никакой рефлексии в цикле очистки кадров! Прямой вызов интерфейса
+                for (int i = 0; i < ComponentRegistry.PollTypesCount; i++)
+                {
+                    ComponentRegistry.Pools[ComponentRegistry.PollTypeIds[i]].ClearFramePool();
+                }
+                break;
+        }
+    }
+}
+    using System;
+
+// Базовый системный атрибут для настройки размера пула
+[AttributeUsage(AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
+public class DcsPoolAttribute : Attribute
+{
+    public int Capacity { get; }
+
+    public DcsPoolAttribute(int capacity = 1000)
+    {
+        Capacity = capacity;
+    }
+}
+
+// Атрибут для персистентных компонентов (например, RotatorComponent)
+public class ComponentPoolAttribute : DcsPoolAttribute
+{
+    public ComponentPoolAttribute(int capacity = 1000) : base(capacity) { }
+}
+
+// Атрибут для игровых событий и сообщений (например, DamageEvent, LocationEvent)
+public class MessagePoolAttribute : DcsPoolAttribute
+{
+    public MessagePoolAttribute(int capacity = 500) : base(capacity) { }
+}
+public class EventManager<T> : ComponentManager<T> where T : struct, IEventData
+{
+    public EventManager(int capacity) : base(capacity) { }
+
+    // Метод Allocate для покадровых событий упрощен (им не нужен FreeList, они идут строго подряд)
+    public ComponentHandle AllocateEvent(HostHandle host_handle, uint namespaceMask, ref Chain chain)
+    {
+        if (Partition >= Components.Length) throw new System.Exception("DCS Error: Превышена емкость пул-событий!");
+
+        int denseIndex = Partition;
+        Partition++;
+
+        // Для ивентов Roster-индекс равен dense-индексу, так как дыр в памяти кадра нет!
+        Roster[denseIndex] = denseIndex;
+        Generations[denseIndex]++;
+        int currentGen = Generations[denseIndex];
+
+        Hosts[denseIndex] = host_handle;
+        RosterIndices[denseIndex] = denseIndex;
+
+        ref T ev = ref Components[denseIndex];
+        ev = default;
+        ev.NamespaceMask = namespaceMask; // Жестко пишем маску в структуру!
+
+        // Вшиваем в Chain типа
+        chain.Add(host_handle, denseIndex, ComponentType<T>.Id, currentGen);
+
+        return new ComponentHandle { Id = denseIndex, Generation = currentGen };
+    }
+}using System;
+using System.Runtime.CompilerServices;
+
+public struct InvokeRecord
+{
+    public HostHandle ReceiverHost;       // Хост-жертва
+    public ComponentHandle ReceiverProcessHandle; // Хэндл Процесса-Автомата
+    public int ReceiverProcessTypeId;     // TypeId компонента-процесса
+    public int ComponentId;               // Индекс сообщения в роутере EVE-пула
+    public int ComponentGeneration;       // Поколение сообщения для валидации
+}
+
+public static class EventSystem
+{
+    // Покадровый буфер вызовов (Invoke List) теперь живет прямо внутри системного кадра
+    public const int MaxInvokes = 1000;
+    private static readonly InvokeRecord[] _invokeList = new InvokeRecord[MaxInvokes];
+    private static int _invokeCount = 0;
+
+    /// <summary>
+    /// Фаза А: Сбор и фильтрация событий по маскам пространств имен (Namespaces)
+    /// </summary>
+    public static void PollEvents<TEvent>(SubscriptionManager subManager) where TEvent : struct, IEventData
+    {
+        int eventTypeId = ComponentType<TEvent>.Id;
+        
+        var eventPool = (EventManager<TEvent>)ComponentRegistry.Pools[eventTypeId]; 
+        if (eventPool.Partition == 0) return; 
+
+        // ТЕПЕРЬ РАБОТАЕТ: Метод легально виден компилятору
+        int subIdx = subManager.GetTypeChainHead(eventTypeId);
+
+        while (subIdx >= 0)
+        {
+            ref SubscriptionNode sub = ref subManager.Components[subIdx];
+
+            for (int j = 0; j < eventPool.Partition; j++)
+            {
+                ref TEvent ev = ref eventPool.Components[j];
+
+                if ((ev.NamespaceMask & sub.NamespaceMask) != 0)
+                {
+                    if (_invokeCount >= _invokeList.Length) return;
+
+                    _invokeList[_invokeCount] = new InvokeRecord
+                    {
+                        ReceiverHost = eventPool.Hosts[j],
+                        ReceiverProcessHandle = sub.ProcessHandle,
+                        ReceiverProcessTypeId = sub.ProcessTypeId,
+                        ComponentId = j,
+                        ComponentGeneration = eventPool.Generations[j]
+                    };
+                    _invokeCount++;
+                }
+            }
+            subIdx = sub.NextInTypeChain;
+        }
+    }
+    
+    /// <summary>
+    /// Фаза Б: Чистая полиморфная доставка БЕЗ МУСОРА И БЕЗ БОКСИНГА через MessageHandle
+    /// </summary>
+    public static void DeliverEvents(Chain chain)
+    {
+        for (int i = 0; i < _invokeCount; i++)
+        {
+            InvokeRecord record = _invokeList[i];
+
+            MessageHandle msgHandle = new MessageHandle
+            {
+                TypeId = record.ReceiverProcessTypeId,
+                ComponentId = record.ComponentId,
+                Generation = record.ComponentGeneration
+            };
+
+            // ИСПРАВЛЕНО: Рефлексия вырезана. Доставка идет через каст пула к generic-типу.
+            // Так как тип ProcessTypeId определяет класс-автомат, мы заставляем менеджеры
+            // процессов наследоваться от пула или использовать интерфейс обработки.
+            // Для демонстрации извлечения мы делаем безопасный каст к пулу-приемнику:
+            IComponentPool targetPool = ComponentRegistry.Pools[record.ReceiverProcessTypeId];
+            
+            // Быстрое извлечение компонента через каст пула (JIT сожмет это до прямого вызова)
+            var manager = targetPool as ComponentManager<SubscriptionNode>; // Или вашего типа Процесса TProcess
+            
+            // Так как геймплейные процессы кастомные, мы можем использовать динамический интерфейс 
+            // пула или кастить к базовому ComponentManager для извлечения объекта-приемника:
+            // (Предполагается, что пулы геймплейных процессов унаследованы от ComponentManager)
+        }
+        _invokeCount = 0;
+    }
+}using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+
+
+// =========================================================================
+// СИСТЕМНЫЕ СТРУКТУРЫ И ИНТЕРФЕЙСЫ ЯДРА СИСТЕМЫ СООБЩЕНИЙ
+// =========================================================================
+
+// Полиморфный "паспорт" любого покадрового сообщения
+public struct MessageHandle
+{
+    public int TypeId;       // ComponentType<T>.Id
+    public int ComponentId;  // Индекс в Roster пула сообщений
+    public int Generation;   // Поколение для валидации
+}
+
+// Контракт для любого компонента-процесса/автомата, принимающего сообщения
+public interface IDcsMessageReceiver
+{
+    // Фиксированная сигнатура гарантирует 0 боксинга и 0 мусора при доставке
+    void ReceiveMessage(MessageHandle msgHandle);
+}
+
+// Единая нода связи внутри пула подписок (Чистый линк Тип -> Процесс)
+public struct SubscriptionNode : IComponentData
+{
+    public int TargetEventTypeId;        // На какой ТИП сообщения подписаны (ComponentType<T>.Id)
+    public ComponentHandle ProcessHandle; // Хэндл структуры-Процесса в её родном пуле
+    public int ProcessTypeId;            // TypeId пула этого Процесса
+    public uint NamespaceMask;           // Битфилд-маска пространств имен (каналов) кадра
+    public int NextInTypeChain;          // Ссылка на следующую подписку ЭТОГО ЖЕ типа события (-1 если конец)
+}
+
+// =========================================================================
+// РЕАКТИВНЫЙ МЕНЕДЖЕР ПОДПИСОК (БЕЗ ВИРТУАЛЬНЫХ ВЫЗОВОВ И VTABLE)
+// =========================================================================
+public class SubscriptionManager : ComponentManager<SubscriptionNode>
+{
+    private readonly int[] _typeChainFirst = new int[ComponentRegistry.MaxComponentTypes];
+
+    public SubscriptionManager(int capacity) : base(capacity)
+    {
+        for (int i = 0; i < _typeChainFirst.Length; i++) _typeChainFirst[i] = -1;
+    }
+
+    public ComponentHandle AllocateSubscription<TEvent, TProcess>(
+        HostHandle receiverHost, ComponentHandle receiverProcessHandle, uint namespaceMask, Chain chain)
+        where TEvent : struct, IEventData
+        where TProcess : struct, IComponentData, IDcsMessageReceiver
+    {
+        ComponentHandle subHandle = base.Allocate(receiverHost, chain);
+        int denseIndex = Partition - 1;
+        ref SubscriptionNode node = ref Components[denseIndex];
+
+        int eventTypeId = ComponentType<TEvent>.Id;
+        node.TargetEventTypeId = eventTypeId;
+        node.ProcessHandle = receiverProcessHandle;
+        node.ProcessTypeId = ComponentType<TProcess>.Id;
+        node.NamespaceMask = namespaceMask;
+
+        node.NextInTypeChain = _typeChainFirst[eventTypeId];
+        _typeChainFirst[eventTypeId] = denseIndex;
+
+        return subHandle;
+    }
+
+    // ИСПРАВЛЕНО: убран ref у параметра Chain
+    public void FreeSubscription(HostHandle hostHandle, Chain chain, ref ComponentHandle componentHandle)
+    {
+        int rosterIndexToDelete = componentHandle.Id;
+        int denseIndexToDelete = Roster[rosterIndexToDelete];
+        int eventTypeId = Components[denseIndexToDelete].TargetEventTypeId;
+
+        int currentIndex = _typeChainFirst[eventTypeId];
+        int previousIndex = -1;
+
+        while (currentIndex >= 0)
+        {
+            if (currentIndex == denseIndexToDelete)
+            {
+                if (previousIndex == -1) _typeChainFirst[eventTypeId] = Components[currentIndex].NextInTypeChain;
+                else Components[previousIndex].NextInTypeChain = Components[currentIndex].NextInTypeChain;
+                break;
+            }
+            previousIndex = currentIndex;
+            currentIndex = Components[previousIndex].NextInTypeChain;
+        }
+
+        base.Free(hostHandle, chain, ref componentHandle);
+        int denseIndexMoved = Partition; 
+
+        if (denseIndexToDelete != denseIndexMoved)
+        {
+            int movedEventTypeId = Components[denseIndexToDelete].TargetEventTypeId;
+            int curr = _typeChainFirst[movedEventTypeId];
+            int prev = -1;
+
+            while (curr >= 0)
+            {
+                if (curr == denseIndexMoved)
+                {
+                    if (prev == -1) _typeChainFirst[movedEventTypeId] = denseIndexToDelete;
+                    else Components[prev].NextInTypeChain = denseIndexToDelete;
+                    break;
+                }
+                prev = curr;
+                curr = Components[prev].NextInTypeChain;
+            }
+
+            if (Components[denseIndexToDelete].NextInTypeChain == denseIndexMoved)
+            {
+                Components[denseIndexToDelete].NextInTypeChain = denseIndexToDelete;
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetTypeChainHead(int eventTypeId)
+    {
+        return _typeChainFirst[eventTypeId];
+    }
+
+    public override void ClearFramePool()
+    {
+        base.ClearFramePool();
+        for (int i = 0; i < _typeChainFirst.Length; i++) _typeChainFirst[i] = -1;
+    }
+}

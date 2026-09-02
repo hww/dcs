@@ -32,7 +32,7 @@ public static class RotatorSystem
             // --- ДОСТАВКА ДАННЫХ В UNITY ---
             // В реальном движке Insomniac здесь был бы вывод в матрицу трансформации SPU.
             // В Unity мы находим GameObject по его ID, чтобы применить поворот визуально.
-            GameObject unityObj = GridGenerator.GetVisualObject(host.Id);
+            GameObject unityObj = DCSComponentsTest.GetVisualObject(host.Id);
             if (unityObj != null)
             {
                 unityObj.transform.rotation = Quaternion.Euler(0, rotator.CurrentAngle, 0);
