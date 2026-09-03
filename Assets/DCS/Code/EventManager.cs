@@ -1,10 +1,20 @@
+public interface IEventDispatcher
+{
+    void SystemPoll(SubscriptionManager subManager, TypeChainManager typeChain);
+}
+
+public interface IEventData {
+    // ИСПРАВЛЕНО: Маска переехала сюда! Теперь EventManager и EventSystem легально видят это поле
+    uint NamespaceMask { get; set; } 
+}
+
 public class EventManager<T> : ComponentManager<T> where T : struct, IEventData
 {
     // Передаем дефолтные параметры в обновленный конструктор базового класса
     public EventManager(int capacity) : base(capacity, EUpdateStage.Update, EAsyncUpdateStage.None, 0) { }
 
     // Метод Allocate для покадровых событий (идут строго подряд без дыр)
-    public ComponentHandle AllocateEvent(HostHandle host_handle, uint namespaceMask, HostChainManager chain)
+    public DcsHandle AllocateEvent(HostHandle host_handle, uint namespaceMask, HostChainManager chain)
     {
         if (Partition >= Components.Length) 
             throw new System.Exception("DCS Error: Превышена емкость пул-событий!");
@@ -29,9 +39,16 @@ public class EventManager<T> : ComponentManager<T> where T : struct, IEventData
         }
 
         // ИСПРАВЛЕНО: Упаковка в хэндл и вызов перегруженного метода Add с 3 аргументами
-        ComponentHandle handle = new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        DcsHandle handle = new DcsHandle { Id = rosterIndex, Generation = currentGen };
         chain.Add(host_handle, handle, ComponentType<T>.Id);
 
         return handle;
     }
+
+    // Этот метод вызывается ядром. Пул ТОЧНО знает свой тип T на этапе компиляции!
+    public void SystemPoll(SubscriptionManager subManager, TypeChainManager typeChain)
+    {
+        EventSystem.PollEvents<T>(subManager, typeChain);
+    }
+
 }

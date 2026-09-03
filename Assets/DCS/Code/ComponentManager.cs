@@ -2,27 +2,25 @@ using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
 
+
 // Интерфейс для базового пула (управление жизненным циклом из Chain)
 public interface IComponentPool
 {
-    void SystemFree(HostHandle hostHandle, HostChainManager chain, int rosterId);
+    void SystemFree(HostHandle hostHandle, HostChainManager chain, DcsHandle handle);
     void ClearFramePool();
-    void SystemDeliver(int denseIndex, MessageHandle msgHandle); // <- Добавить
+    void SystemDeliver(int denseIndex, int typeId, DcsHandle msgHandle); // <- Добавить
 }
 
-public interface IDcsComponent
-{
-    int RosterIndex { get; set; }
-}
-
+// Элемент в ростере, связующее звено между хендлом, компонентом и хостом.
 public struct RosterItem 
 {
     public int Index;          // DenseIndex (указатель на плотный массив компонентов)
     public int Generation;     // Поколение для валидации хэндла
     public HostHandle Host;    // Владелец компонента (нужен для вызова chain.Remove при удалении)
-
     public int Next;           // Следующая ячейка (свободная или занятая)
 }
+
+// Универсальный пул компонентов
 public class ComponentManager<T> : IComponentPool where T : struct 
 {
     public int Partition = 0; 
@@ -57,7 +55,7 @@ public class ComponentManager<T> : IComponentPool where T : struct
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ref T ResolveHandle(ComponentHandle component_handle)
+    public ref T ResolveHandle(DcsHandle component_handle)
     {
         int rosterIndex = component_handle.Id;
         // Проверяем поколение прямо в структуре ростера
@@ -69,9 +67,9 @@ public class ComponentManager<T> : IComponentPool where T : struct
         throw new System.InvalidCastException($"DCS ValidCast Error: Хэндл устарел для пула {_componentType.Name}");
     }
 
-    public ComponentHandle Allocate(HostHandle host_handle, HostChainManager chain) => Allocate(host_handle, chain, null);
+    public DcsHandle Allocate(HostHandle host_handle, HostChainManager chain) => Allocate(host_handle, chain, null);
 
-       public ComponentHandle Allocate(HostHandle host_handle, HostChainManager chain, object prius) 
+       public DcsHandle Allocate(HostHandle host_handle, HostChainManager chain, object prius) 
     {
         if (Partition >= Components.Length)
             throw new System.Exception($"DCS Error: Превышена емкость пула для {_componentType.Name}!");
@@ -100,13 +98,13 @@ public class ComponentManager<T> : IComponentPool where T : struct
             initializable.Init(prius);
 
         // ИСПРАВЛЕНО: Собираем хэндл и передаем в типизированный Add
-        ComponentHandle handle = new ComponentHandle { Id = rosterIndex, Generation = currentGen };
+        DcsHandle handle = new DcsHandle { Id = rosterIndex, Generation = currentGen };
         chain.Add(host_handle, handle, _poolId);
         
         return handle;
     }
 
-    public void Free(HostHandle host_handle, HostChainManager chain, ref ComponentHandle component_handle) 
+    public void Free(HostHandle host_handle, HostChainManager chain, ref DcsHandle component_handle) 
     {
         int rosterIndexToDelete = component_handle.Id; 
         int denseIndexToDelete = Roster[rosterIndexToDelete].Index;
@@ -116,6 +114,7 @@ public class ComponentManager<T> : IComponentPool where T : struct
 
         Roster[rosterIndexToDelete].Generation++;
         Roster[rosterIndexToDelete].Next = _freeRosterHead; 
+        Roster[rosterIndexToDelete].Host = default; // Обнуляем Host
         _freeRosterHead = rosterIndexToDelete;              
 
         Partition--;
@@ -141,21 +140,49 @@ public class ComponentManager<T> : IComponentPool where T : struct
         Partition = 0;
         _rosterIncr = 0;
         _freeRosterHead = -1;
+
+        // Организация списка свободных слотов ростера (Free List) через поле Next
+        for (int i = 0; i < Roster.Length; i++)
+        {
+            Roster[i].Host = default;
+            Roster[i].Generation++; // Для гарантии того что компоненты будут невалидными
+            Roster[i].Next = i + 1;
+        }
+            
+        Roster[Roster.Length - 1].Next = -1;
     }
 
-    public void SystemDeliver(int denseIndex, MessageHandle msgHandle)
+
+
+    // Системный мост для HostChainManager.FreeChain
+    void IComponentPool.SystemFree(HostHandle hostHandle, HostChainManager chain, DcsHandle handle)
     {
+        // Проверка поколения - хэндл валидный?
+        if (Roster[handle.Id].Generation != handle.Generation)
+            return; // Хэндл устарел, компонент уже освобождён
+        
+        // Передаём оригинальный хэндл в Free
+        // Нужно создать копию, потому что Free принимает ref
+        DcsHandle handleCopy = handle;
+        Free(hostHandle, chain, ref handleCopy);
+    }
+
+    // Этот метод теперь СТАТИЧЕСКИЙ или НЕВИРТУАЛЬНЫЙ и вызывается напрямую
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void DeliverDirect(int rosterIndex, int msgTypeId, DcsHandle msgHandle)
+    {
+        // Проверяем валидность поколения компонента-приемника
+        if (Roster[rosterIndex].Generation != msgHandle.Generation) return;
+
+        int denseIndex = Roster[rosterIndex].Index;
+        
+        // Быстрый вызов без vtable
         if (Components[denseIndex] is IDcsMessageReceiver receiver)
         {
-            receiver.ReceiveMessage(msgHandle);
+            receiver.ReceiveMessage(msgTypeId, msgHandle);
         }
     }
 
-    // Системный мост для HostChainManager.FreeChain
-    void IComponentPool.SystemFree(HostHandle hostHandle, HostChainManager chain, int rosterId)
-    {
-        // ИСПРАВЛЕНО: Извлекаем поколение из структуры RosterItem под типом HostChainManager
-        ComponentHandle handle = new ComponentHandle { Id = rosterId, Generation = Roster[rosterId].Generation };
-        Free(hostHandle, chain, ref handle);
-    }
+    // Старый метод интерфейса оставляем ТОЛЬКО как холодный бэкап (не для горячего цикла)
+    public void SystemDeliver(int denseIndex, int msgTypeId, DcsHandle msgHandle) => DeliverDirect(denseIndex, msgTypeId, msgHandle);
 }

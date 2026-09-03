@@ -6,6 +6,8 @@ using UnityEngine;
 public static class ComponentType<T> where T : struct
 {
     public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
+
+
 }
 
 public static class ComponentRegistry
@@ -13,7 +15,6 @@ public static class ComponentRegistry
     private static int _typeCounter = 0;
     public const int MaxComponentTypes = 200;
     
-    // ИСПРАВЛЕНО: Теперь храним строго типизированные для ядра интерфейсы вместо сырых object
     public static readonly IComponentPool[] Pools = new IComponentPool[MaxComponentTypes];
     public static readonly int[] PollTypeIds = new int[MaxComponentTypes];
     public static int PollTypesCount = 0;
@@ -60,6 +61,8 @@ public static class ComponentRegistry
         return newId;
     }
 
+    // ОСТАВЛЯЕМ ТОЛЬКО ЭТОТ МЕТОД. ОН ВОЗВРАЩАЕТ СТРОГИЙ ТИП МЕНЕДЖЕРА!
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ComponentManager<T> GetPool<T>() where T : struct
     {
         return (ComponentManager<T>)Pools[ComponentType<T>.Id];

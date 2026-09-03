@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 public struct TypeChainNode
 {
-    public ComponentHandle SubscriptionHandle; // Хэндл структуры подписки в SubscriptionManager
+    public DcsHandle SubscriptionHandle; // Хэндл структуры подписки в SubscriptionManager
     public int ProcessTypeId;                 // TypeId пула Процесса-Автомата (приемника)
     public int Next;                          // Индекс следующей подписки в этой цепи типов
 }
@@ -32,7 +32,7 @@ public class TypeChainManager
     /// <summary>
     /// Линкует подписку в чейн конкретного типа события
     /// </summary>
-    public void Add(int eventTypeId, ComponentHandle subHandle, int processTypeId)
+    public void Add(int eventTypeId, DcsHandle subHandle, int processTypeId)
     {
         if (_firstFree == -1) 
             throw new System.Exception("DCS Error: Закончилась память в TypeChainManager!");
@@ -51,7 +51,7 @@ public class TypeChainManager
     /// <summary>
     /// Удаляет подписку из чейна конкретного типа события
     /// </summary>
-    public void Remove(int eventTypeId, ComponentHandle subHandle)
+    public void Remove(int eventTypeId, DcsHandle subHandle)
     {
         int currentIndex = _typeChains[eventTypeId];
         int previousIndex = -1;

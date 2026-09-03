@@ -6,22 +6,15 @@ using UnityEngine;
 // СИСТЕМНЫЕ СТРУКТУРЫ И ИНТЕРФЕЙСЫ ЯДРА СИСТЕМЫ СООБЩЕНИЙ
 // =========================================================================
 
-public struct MessageHandle
-{
-    public int TypeId;       
-    public int ComponentId;  
-    public int Generation;   
-}
-
 public interface IDcsMessageReceiver
 {
-    void ReceiveMessage(MessageHandle msgHandle);
+    void ReceiveMessage(int msgTypeId, DcsHandle msgHandle);
 }
 
-public struct SubscriptionNode : IComponentData, IDcsComponent
+public struct SubscriptionNode : IDcsComponent
 {
     public int TargetEventTypeId;        
-    public ComponentHandle ProcessHandle; 
+    public DcsHandle ProcessHandle; 
     public int ProcessTypeId;            
     public uint NamespaceMask;           
     
@@ -41,17 +34,18 @@ public class SubscriptionManager : ComponentManager<SubscriptionNode>
     {
     }
 
-    public ComponentHandle AllocateSubscription<TEvent, TProcess>(
+    public DcsHandle AllocateSubscription<TEvent, TProcess>(
         HostHandle receiverHost, 
-        ComponentHandle receiverProcessHandle, 
+        DcsHandle receiverProcessHandle, 
         uint namespaceMask, 
         HostChainManager hostChain, 
         TypeChainManager typeChain)
         where TEvent : struct, IEventData
-        where TProcess : struct, IComponentData, IDcsMessageReceiver
+        where TProcess : struct, IDcsComponent, IDcsMessageReceiver
     {
+        if (receiverProcessHandle.IsNull) return default;
         // 1. Выделяем подписку как компонент хоста (для очистки при смерти автомата)
-        ComponentHandle subHandle = base.Allocate(receiverHost, hostChain);
+        DcsHandle subHandle = base.Allocate(receiverHost, hostChain);
         
         int denseIndex = Partition - 1;
         ref SubscriptionNode node = ref Components[denseIndex];
@@ -68,18 +62,18 @@ public class SubscriptionManager : ComponentManager<SubscriptionNode>
         return subHandle;
     }
 
-    public void FreeSubscription(HostHandle hostHandle, HostChainManager hostChain, TypeChainManager typeChain, ref ComponentHandle componentHandle)
+    public void FreeSubscription(HostHandle hostHandle, HostChainManager hostChain, TypeChainManager typeChain, ref DcsHandle DcsHandle)
     {
-        int rosterIndexToDelete = componentHandle.Id;
+        int rosterIndexToDelete = DcsHandle.Id;
         int denseIndexToDelete = Roster[rosterIndexToDelete].Index;
         int eventTypeId = Components[denseIndexToDelete].TargetEventTypeId;
 
         // ЭТАП 1: Вырезаем ноду подписки из изолированного менеджера цепей типов за O(N_подписок_типа)
-        typeChain.Remove(eventTypeId, componentHandle);
+        typeChain.Remove(eventTypeId, DcsHandle);
 
         // ЭТАП 2: Просто вызываем базовый Free. Рокировка Swap-Back двигает память,
         // но благодаря IDcsComponent ростер мгновенно обновляет DenseIndex, а хэндлы в TypeChainNode не ломаются!
-        base.Free(hostHandle, hostChain, ref componentHandle);
+        base.Free(hostHandle, hostChain, ref DcsHandle);
         
         // Никакой ручной перестройки индексов в связных списках больше нет!
     }

@@ -6,7 +6,7 @@ using UnityEngine;
 public struct ChainNode 
 {
     // Внутри инкапсулированы int Id и int Generation
-    public ComponentHandle Component; 
+    public DcsHandle Component; 
     public int TypeId;      
     public int Next; // Индекс следующей ноды в массиве HostChainManager
     
@@ -33,7 +33,7 @@ public class HostChainManager
     }
 
     // Сигнатура теперь принимает чистые хэндлы вместо мешанины int параметров!
-    public void Add(HostHandle host, ComponentHandle component, int typeId) 
+    public void Add(HostHandle host, DcsHandle component, int typeId) 
     {
         if (!HostManager.IsValid(host)) return;
         if (Contains(host, component, typeId)) return;
@@ -53,7 +53,7 @@ public class HostChainManager
         globalHost.FirstComponent = allocatedNodeIndex; 
     }
 
-    public void Remove(HostHandle host, ComponentHandle component, int typeId) 
+    public void Remove(HostHandle host, DcsHandle component, int typeId) 
     {
         if (!HostManager.IsValid(host)) return;
 
@@ -82,7 +82,7 @@ public class HostChainManager
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Contains(HostHandle host, ComponentHandle component, int typeId) 
+    public bool Contains(HostHandle host, DcsHandle component, int typeId) 
     {
         if (!HostManager.IsValid(host)) return false;
 
@@ -126,7 +126,7 @@ public class HostChainManager
             
             // Системное освобождение. Мы избавляемся от передачи 'this' в пулы, 
             // передавая ссылку на HostChainManager, если пулу все еще нужно вызвать Remove.
-            pool.SystemFree(host, this, node.Component.Id);
+            pool.SystemFree(host, this, node.Component);
 
             int nextIndex = node.Next;
             node = default;

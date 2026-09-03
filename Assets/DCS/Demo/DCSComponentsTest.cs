@@ -51,7 +51,7 @@ public class DCSComponentsTest : MonoBehaviour
 
                 // МАГИЯ API: Выделяем компонент вращения в пуле за O(1)
                 // Система сама создаст пул, пропишет связи в _chain и вернет хэндл
-                ComponentHandle rotatorHandle = DynamicComponentSystem.Allocate<RotatorComponent>(host, _chain);
+                DcsHandle rotatorHandle = DynamicComponentSystem.Allocate<RotatorComponent>(host, _chain);
                 ref RotatorComponent rotator = ref DynamicComponentSystem.ResolveHandle<RotatorComponent>(rotatorHandle);
                 rotator.Speed = Random.Range(30f, MaxRotationSpeed);
                 hostIdCounter++;
