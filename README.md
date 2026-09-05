@@ -16,6 +16,24 @@ DCS is an implementation of a dynamic component system inspired by the architect
 - **Global Masking** — Instant disable of entire component categories (pause, object types) with a single bitwise operation.
 - **Multi-Threading Ready** — Separation of synchronous (PPU) and asynchronous (Job System) updates.
 
+## 📌 Current Status: Core Complete, System in Development
+
+This repository contains the **core DCS implementation** — a high-performance 
+component pool architecture with event system and generational handles.
+
+**What's implemented:**
+- Component pools with dense arrays and sparse roster
+- Safe handle system with generation validation
+- Event system with subscriptions and two-phase delivery
+- Host management and component chains
+
+**Next steps (in progress):**
+- State machine system built on top of DCS
+- Process-oriented behavior system with coroutine-based sequencing
+- Full DOD adaptation for high-level game logic
+
+This is a living project. Contributions and feedback are welcome!
+
 ---
 
 ## 🏗️ Architecture at a Glance
