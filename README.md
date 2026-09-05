@@ -119,23 +119,27 @@ HostManager.DestroyHost(player, hostChain);
 ## 📂 Repository Structure
 
 ```
-├── README.md                           # This file
-├── docs/
+├── README.md                          # This file
+├── Docs/
 │   └── dcs-documentation.md           # Complete API technical documentation
-├── analysis/
-│   ├── manifest.md                    # Unity adaptation manifest (C# limitations)
-│   └── unity-version.md               # Architectural reconstruction and commentary
-└── src/                               # System source code
-    ├── Core/
-    │   ├── HostManager.cs
-    │   ├── ComponentPool.cs
-    │   └── HostChain.cs
-    ├── Events/
-    │   ├── EventPool.cs
-    │   ├── EventSubscription.cs
-    │   └── EventSystem.cs
-    └── Attributes/
-        └── PoolAttributes.cs
+├── Assets/DCS
+│   ├── Core
+│   │   ├── ComponentPool.cs           # The components pool
+│   │   ├── ComponentRegistry.cs       # The list of registered component's types
+│   │   ├── ComponentSystem.cs         # Updater of all types in order of UpdateScheduler
+│   │   ├── Core
+│   │   │   ├── Attibutes.cs
+│   │   │   ├── Enums.cs
+│   │   │   ├── Handlers.cs
+│   │   │   ├── HostData.cs
+│   │   │   ├── Interfaces.cs
+│   │   ├── EventPool.cs               # The event's pool
+│   │   ├── EventSubscription.cs       # Subscribe to events
+│   │   ├── EventSystem.cs             # Deliver events to subscribers
+│   │   ├── HostChain.cs               # Connect components to a chain to a host
+│   │   ├── HostPool.cs                # Manage list of hosts
+│   │   ├── TypeChain.cs               # Connect components to a chain to other component
+│   │   ├── UpdateScheduler.cs         # Sorting component types by priority
 ```
 
 ---
