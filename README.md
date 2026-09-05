@@ -135,7 +135,7 @@ HostManager.DestroyHost(player, hostChain);
 ## 🔗 Source Materials
 
 - [Original Presentation by Terrance Cohen](https://hww.github.io/articles/2013/terrance_cohen_dcs/ADynamicComponentArchitectureForHighPerformanceGameplay.pptx) (Insomniac Games, 2010)
-- [Translation and Analytical Commentary]([analysis/index.md](https://hww.github.io/articles/2013/terrance_cohen_dcs/))
+- [Translation and Analytical Commentary](https://hww.github.io/articles/2013/terrance_cohen_dcs/)
 
 ---
 
