@@ -1,4 +1,5 @@
 using UnityEngine;
+using DynamicComponent;
 
 // 1. Чистый DOD-компонент для вращения. Никаких интерфейсов.
 [ComponentPool(5000)]
@@ -12,10 +13,10 @@ public struct RotatorComponent
 public static class RotatorSystem
 {
     // Обновление всех компонентов вращения за один плоский проход по памяти
-    public static void Update(float deltaTime, HostChainManager chain)
+    public static void Update(float deltaTime, HostChain chain)
     {
         // Мгновенно берем менеджер пула для RotatorComponent
-        ComponentManager<RotatorComponent> pool = ComponentRegistry.GetPool<RotatorComponent>();
+        ComponentPool<RotatorComponent> pool = ComponentRegistry.GetPool<RotatorComponent>();
 
         // Процессор идет строго линейно от 0 до Partition (только по активным элементам)
         for (int i = 0; i < pool.Partition; i++)
@@ -24,7 +25,7 @@ public static class RotatorSystem
             ref RotatorComponent rotator = ref pool.Components[i];
             
             // Из параллельного массива метаданных за 1 такт узнаем, какому Хосту принадлежит память
-            HostHandle host = pool.Roster[i].Host;
+            Host host = pool.Roster[i].Host;
 
             // Наращиваем угол
             rotator.CurrentAngle += rotator.Speed * deltaTime;

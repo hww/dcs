@@ -1,4 +1,5 @@
 using UnityEngine;
+using DynamicComponent;
 
 public class DCSComponentsTest : MonoBehaviour
 {
@@ -8,20 +9,21 @@ public class DCSComponentsTest : MonoBehaviour
     public float MaxRotationSpeed = 180f;
 
     // Глобальная таблица связей
-    private HostChainManager _chain;
+    private HostChain _chain;
+    private UpdateScheduler _updateScheduler;
 
     // Массив для хранения ссылок на визуальные объекты Unity, 
     // чтобы система вращения могла быстро найти их по Host ID
     private static GameObject[] _visualRegistry;
 
-    private void Start()
+    private void OnEnable()
     {
         ComponentRegistry.InitializeAllPools();
 
         // 1. Инициализируем системные таблицы
-        _chain = new HostChainManager();
+        _chain = new HostChain();
         _visualRegistry = new GameObject[HostManager.MaxGameObjects];
-
+        _updateScheduler = new UpdateScheduler();
         // 2. Генерируем сетку объектов
         int hostIdCounter = 0;
 
@@ -37,7 +39,7 @@ public class DCSComponentsTest : MonoBehaviour
                 cube.name = $"DCHost_{hostIdCounter}";
 
                 // Создаем абсолютно невесомый HostHandle для нашей DCS системы
-                HostHandle host = new HostHandle
+                Host host = new Host
                 {
                     Id = hostIdCounter,
                     Generation = 1
@@ -51,8 +53,8 @@ public class DCSComponentsTest : MonoBehaviour
 
                 // МАГИЯ API: Выделяем компонент вращения в пуле за O(1)
                 // Система сама создаст пул, пропишет связи в _chain и вернет хэндл
-                DcsHandle rotatorHandle = DynamicComponentSystem.Allocate<RotatorComponent>(host, _chain);
-                ref RotatorComponent rotator = ref DynamicComponentSystem.ResolveHandle<RotatorComponent>(rotatorHandle);
+                Handle rotatorHandle = DCS.Allocate<RotatorComponent>(host, _chain);
+                ref RotatorComponent rotator = ref DCS.ResolveHandle<RotatorComponent>(rotatorHandle);
                 rotator.Speed = Random.Range(30f, MaxRotationSpeed);
                 hostIdCounter++;
             }
