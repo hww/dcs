@@ -114,6 +114,25 @@ namespace DynamicComponent
         }
 
         /// <summary>
+        /// Allows the native Lua bridge to allocate static event subscriptions by integer IDs directly via the pool instance.
+        /// </summary>
+        public Handle SystemSubscribe(Host receiverHost, int eventTypeId, HostChain hostChain, TypeChain typeChain)
+        {
+            // Allocates a raw SubscriptionNode and links it into the TypeChain registry
+            Handle subHandle = base.Allocate(receiverHost, hostChain);
+            int denseIndex = Partition - 1;
+            ref SubscriptionNode node = ref Components[denseIndex];
+
+            node.TargetEventTypeId = eventTypeId;
+            node.ProcessHandle = subHandle; // Links back to itself as a stable handler
+            node.ProcessTypeId = ComponentType<SubscriptionNode>.Id; // Subscription type pointer
+            node.NamespaceMask = uint.MaxValue; // Default to allow all masks for script routing
+
+            typeChain.Add(eventTypeId, subHandle, node.ProcessTypeId);
+            return subHandle;
+        }
+
+        /// <summary>
         /// Frees a subscription and removes it from the event type chain.
         /// </summary>
         /// <param name="hostHandle">Host owner.</param>

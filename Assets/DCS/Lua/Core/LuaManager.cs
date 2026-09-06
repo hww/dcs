@@ -32,21 +32,25 @@ namespace DynamicComponent.Lua
             }
             _instance = this;
             DontDestroyOnLoad(gameObject);
-
-            // 1. Initialize your high-performance DCS pools
-            ComponentRegistry.InitializeAllPools();
-
-            // 2. Create the main component chain manager for the game
-            HostChain myGameChain = new HostChain();
-
-            // 3. Link this active C# chain to the global Lua infrastructure
-            DynamicComponent.Lua.LuaManager.BindHostChain(myGameChain);
         }
 
         private void Start()
         {
             // Ensure pools are fully initialized in your architecture before spinning up the state
             InitializeGlobalEngine();
+
+            // Симулируем, что C# EventSystem зафиксировала урон по Хосту №0 (нашим воротам)
+            // И пробрасывает это событие в Lua!
+            DynamicComponent.Lua.LuaManager.DeliverEventToLua(0, 0);
+        }
+        
+        private static EventSubscription _eventSubscriptionPool;
+        private static TypeChain _globalTypeChain;
+        // Public setter to bind the active DCS event infrastructure to the Lua bridge
+        public static void BindEventSystems(EventSubscription subPool, TypeChain typeChain)
+        {
+            _eventSubscriptionPool = subPool;
+            _globalTypeChain = typeChain;
         }
 
         private void InitializeGlobalEngine()
@@ -58,7 +62,7 @@ namespace DynamicComponent.Lua
 
                 IntPtr L = _globalLuaState.L;
 
-                // 1. Bind registry reflection data functions
+                // Existing registry reflection data functions bindings
                 IntPtr countCallbackPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_GetTypesCount);
                 LuaNative.lua_pushcclosure(L, countCallbackPtr, 0);
                 LuaNative.lua_setglobal(L, "DCS_Internal_GetTypesCount");
@@ -67,7 +71,6 @@ namespace DynamicComponent.Lua
                 LuaNative.lua_pushcclosure(L, nameCallbackPtr, 0);
                 LuaNative.lua_setglobal(L, "DCS_Internal_GetTypeNameById");
 
-                // 2. GLOBAL LEVEL REGISTRATION: Core DCS allocation pipelines live here now
                 IntPtr createHostPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_CreateHost);
                 LuaNative.lua_pushcclosure(L, createHostPtr, 0);
                 LuaNative.lua_setglobal(L, "DCS_Internal_CreateHost");
@@ -75,6 +78,11 @@ namespace DynamicComponent.Lua
                 IntPtr addCompPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_AddComponent);
                 LuaNative.lua_pushcclosure(L, addCompPtr, 0);
                 LuaNative.lua_setglobal(L, "DCS_Internal_AddComponent");
+
+                // 2. ADD THIS EXACT LINE: Binding the new permanent subscription bridge to Lua scope
+                IntPtr subPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_RegisterSubscription);
+                LuaNative.lua_pushcclosure(L, subPtr, 0);
+                LuaNative.lua_setglobal(L, "DCS_Internal_RegisterSubscription");
 
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";
 
@@ -92,6 +100,31 @@ namespace DynamicComponent.Lua
             {
                 Debug.LogError($"[LuaManager] Failed to spin up the script engine framework: {e.Message}");
             }
+        }
+
+        // ============================================================
+        //  ADD THIS EXACT METHOD INSIDE LUA_MANAGER CLASS
+        // ============================================================
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_RegisterSubscription(IntPtr L)
+        {
+            // Read target unboxed integers from the native execution stack
+            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int eventTypeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
+            Host host = new Host { Id = hostId, Generation = hostData.Generation };
+
+            // Secure subscription allocation straight via your high-performance DCS architecture
+            if (_eventSubscriptionPool != null && _globalHostChain != null && _globalTypeChain != null)
+            {
+                // FIX: Directly invoking the concrete class instance instead of casting to IComponentPool interface
+                _eventSubscriptionPool.SystemSubscribe(host, eventTypeId, _globalHostChain, _globalTypeChain);
+
+                Debug.Log($"<color=cyan>[DCS LUA SUBSCRIPTION]</color> Host {hostId} permanently registered subscription to Event TypeId: {eventTypeId}");
+            }
+
+            return 0;
         }
 
         // ============================================================
@@ -149,6 +182,39 @@ namespace DynamicComponent.Lua
 
             Debug.LogWarning($"[Lua DCS Bridge] Error: Allocation crash. TypeId: {typeId} on Host ID: {hostId}");
             return 0;
+        }
+
+        // ============================================================
+        //  THE EVENT SYSTEM
+        // ============================================================
+
+        /// <summary>
+        /// Delivers a runtime DCS event straight into the global Lua execution context.
+        /// </summary>
+        /// <param name="hostId">The ID of the Host that generated or received the event.</param>
+        /// <param name="eventTypeId">The ComponentType ID of the event.</param>
+        public static void DeliverEventToLua(int hostId, int eventTypeId)
+        {
+            if (_instance == null || _instance._globalLuaState == null) return;
+
+            IntPtr L = _instance._globalLuaState.L;
+
+            // 1. Find the global event router function we will define in bootstrap.lua
+            LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
+
+            // If the function exists on the stack, push the arguments and call it
+            if (LuaNative.lua_isfunction(L, -1))
+            {
+                LuaNative.lua_pushinteger(L, hostId);
+                LuaNative.lua_pushinteger(L, eventTypeId);
+
+                // Call the function with 2 arguments and 0 results
+                if (LuaNative.lua_pcallk(L, 2, 0, 0, 0, IntPtr.Zero) != 0)
+                {
+                    string error = _instance._globalLuaState.GetStringFromStack(-1);
+                    Debug.LogError($"[Lua Event Router Error] {error}");
+                }
+            }
         }
     }
 }
