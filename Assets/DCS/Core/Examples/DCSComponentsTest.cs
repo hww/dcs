@@ -1,6 +1,7 @@
 using UnityEngine;
 using DynamicComponent;
 
+
 public class DCSComponentsTest : MonoBehaviour
 {
     [Header("Настройки сетки")]
@@ -25,7 +26,7 @@ public class DCSComponentsTest : MonoBehaviour
         _visualRegistry = new GameObject[HostManager.MaxGameObjects];
         _updateScheduler = new UpdateScheduler();
         // 2. Генерируем сетку объектов
-        int hostIdCounter = 0;
+        System.UInt16 hostIdCounter = 0;
 
         for (int x = 0; x < N; x++)
         {

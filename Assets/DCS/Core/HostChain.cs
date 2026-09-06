@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
+using System;
 
 namespace DynamicComponent
 {
@@ -90,7 +91,7 @@ namespace DynamicComponent
                 _components[i] = new ChainNode
                 {
                     Next = i + 1,
-                    Component = new Handle { Id = -1 }
+                    Component = new Handle { Id = ushort.MaxValue }
                 };
             }
 

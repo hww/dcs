@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
 using DynamicComponent;
+using System;
+using DynamicComponent.Lua;
 
 namespace DynamicComponent
 {
@@ -230,7 +232,7 @@ namespace DynamicComponent
                 initializable.Init(prius);
 
             // Add to host chain
-            Handle handle = new Handle { Id = rosterIndex, Generation = currentGen };
+            Handle handle = new Handle { Id = (System.UInt16)rosterIndex, Generation = (System.UInt16)currentGen };
             chain.Add(hostHandle, handle, _poolId);
 
             return handle;
@@ -392,5 +394,76 @@ namespace DynamicComponent
         /// </summary>
         public void SystemDeliver(int rosterIndex, int msgTypeId, Handle msgHandle)
             => DeliverDirect(rosterIndex, msgTypeId, msgHandle);
+
+
+        /// <summary>
+        /// Tries to get the dense index from a Handle.
+        /// Validates the Handle's Generation against the Roster slot.
+        /// </summary>
+        public bool TryGetDenseIndex(Handle handle, out int denseIndex)
+        {
+            denseIndex = -1;
+
+            // Check bounds
+            if (handle.Id < 0 || handle.Id >= Roster.Length)
+                return false;
+
+            ref RosterItem slot = ref Roster[handle.Id];
+
+            // Validate generation
+            if (slot.Generation != handle.Generation)
+                return false;
+
+            // Check if slot is occupied
+            if (slot.Index == HandleConfig.NULL_INDEX)
+                return false;
+
+            denseIndex = slot.Index;
+            return true;
+        }
+
+        /// <summary>
+        /// Reads a field from a component and pushes it to Lua stack.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        public virtual void GetField(int denseIndex, string fieldName, IntPtr L)
+        {
+            LuaNative.lua_pushnil(L);
+        }
+
+        /// <summary>
+        /// Reads a value from Lua stack and writes it to a component field.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        public virtual void SetField(int denseIndex, string fieldName, IntPtr L)
+        {
+            // Nothing by default
+        }
+
+        /// <summary>
+        /// Tries to get the Host that owns the component identified by the given Handle.
+        /// Validates the Handle's Generation against the Roster slot.
+        /// </summary>
+        public bool TryGetHost(Handle handle, out Host host)
+        {
+            host = default;
+
+            if (handle.Id < 0 || handle.Id >= Roster.Length)
+                return false;
+
+            ref RosterItem slot = ref Roster[handle.Id];
+
+            if (slot.Generation != handle.Generation)
+                return false;
+
+            if (slot.Index == HandleConfig.NULL_INDEX)
+                return false;
+
+            host = slot.Host;
+            return true;
+        }
+
     }
 }

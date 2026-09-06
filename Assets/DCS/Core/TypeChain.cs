@@ -74,7 +74,7 @@ namespace DynamicComponent
             for (int i = 0; i < MaxTypeNodes; i++)
             {
                 _nodes[i] = new TypeChainNode { Next = i + 1 };
-                _nodes[i].SubscriptionHandle.Id = -1;
+                _nodes[i].SubscriptionHandle.Id = ushort.MaxValue;
             }
             _nodes[MaxTypeNodes - 1].Next = -1;
 

@@ -1,3 +1,5 @@
+using System;
+
 namespace DynamicComponent
 {
     // ============================================================
@@ -162,6 +164,32 @@ namespace DynamicComponent
         /// <param name="msgTypeId">Type ID of the message.</param>
         /// <param name="msgHandle">Message handle with generation validation.</param>
         void SystemDeliver(int rosterIndex, int msgTypeId, Handle msgHandle);
+
+        /// <summary>
+        /// Tries to get the dense index from a Handle.
+        /// Validates the Handle's Generation against the Roster slot.
+        /// </summary>
+        bool TryGetDenseIndex(Handle handle, out int denseIndex);
+
+        /// <summary>
+        /// Reads a field from a component and pushes it to Lua stack.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        void GetField(int denseIndex, string fieldName, IntPtr L);
+
+        /// <summary>
+        /// Reads a value from Lua stack and writes it to a component field.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        void SetField(int denseIndex, string fieldName, IntPtr L);
+        /// <summary>
+        /// Tries to get the Host that owns the component identified by the given Handle.
+        /// Validates the Handle's Generation against the Roster slot.
+        /// </summary>
+        bool TryGetHost(Handle handle, out Host host);
+
     }
 
 }

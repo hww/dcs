@@ -5,6 +5,10 @@ using UnityEngine;
 
 namespace DynamicComponent.Lua
 {
+    /// <summary>
+    /// Core entry point of the Lua script engine backend.
+    /// Manages the global execution runtime state and coordinates file reads.
+    /// </summary>
     public class LuaManager : MonoBehaviour
     {
         private static LuaManager _instance;
@@ -12,15 +16,30 @@ namespace DynamicComponent.Lua
 
         private LuaStateWrapper _globalLuaState;
 
-        // CRITICAL FIX: Explicit static reference for P/Invoke runtime safety
+        // Explicit static references for P/Invoke callback thread safety
         private static HostChain _globalHostChain;
+        private static EventSubscription _eventSubscriptionPool;
+        private static TypeChain _globalTypeChain;
 
         private string LuaRootPath => Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
-        // Public setter to bind the active game loop HostChain to the Lua infrastructure
+        /// <summary>
+        /// Binds the active game loop structural layout manager to the bridge context.
+        /// Must be called before LuaManager initializes.
+        /// </summary>
         public static void BindHostChain(HostChain hostChain)
         {
             _globalHostChain = hostChain;
+        }
+
+        /// <summary>
+        /// Binds the active DCS event subscription management pipelines to the script scope.
+        /// Must be called before LuaManager initializes.
+        /// </summary>
+        public static void BindEventSystems(EventSubscription subPool, TypeChain typeChain)
+        {
+            _eventSubscriptionPool = subPool;
+            _globalTypeChain = typeChain;
         }
 
         void Awake()
@@ -36,56 +55,46 @@ namespace DynamicComponent.Lua
 
         private void Start()
         {
-            // Ensure pools are fully initialized in your architecture before spinning up the state
             InitializeGlobalEngine();
-
-            // Симулируем, что C# EventSystem зафиксировала урон по Хосту №0 (нашим воротам)
-            // И пробрасывает это событие в Lua!
-            DynamicComponent.Lua.LuaManager.DeliverEventToLua(0, 0);
         }
-        
-        private static EventSubscription _eventSubscriptionPool;
-        private static TypeChain _globalTypeChain;
-        // Public setter to bind the active DCS event infrastructure to the Lua bridge
-        public static void BindEventSystems(EventSubscription subPool, TypeChain typeChain)
-        {
-            _eventSubscriptionPool = subPool;
-            _globalTypeChain = typeChain;
-        }
-
         private void InitializeGlobalEngine()
         {
             try
             {
                 Debug.Log("[LuaManager] Starting global virtual machine instance...");
                 _globalLuaState = new LuaStateWrapper("GlobalEngine");
-
                 IntPtr L = _globalLuaState.L;
 
-                // Existing registry reflection data functions bindings
-                IntPtr countCallbackPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_GetTypesCount);
-                LuaNative.lua_pushcclosure(L, countCallbackPtr, 0);
-                LuaNative.lua_setglobal(L, "DCS_Internal_GetTypesCount");
+                // ============================================================
+                // 1. META: Component type info
+                // ============================================================
+                RegisterLuaFunction(L, Lua_GetTypesCount, "DCS_Internal_GetTypesCount");
+                RegisterLuaFunction(L, Lua_GetTypeNameById, "DCS_Internal_GetTypeNameById");
 
-                IntPtr nameCallbackPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_GetTypeNameById);
-                LuaNative.lua_pushcclosure(L, nameCallbackPtr, 0);
-                LuaNative.lua_setglobal(L, "DCS_Internal_GetTypeNameById");
+                // ============================================================
+                // 2. COMPONENT OPERATIONS
+                // ============================================================
+                RegisterLuaFunction(L, Lua_CreateComponent, "DCS_CreateComponent");
+                RegisterLuaFunction(L, Lua_RemoveComponent, "DCS_RemoveComponent");
+                RegisterLuaFunction(L, Lua_HasComponent, "DCS_HasComponent");
 
-                IntPtr createHostPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_CreateHost);
-                LuaNative.lua_pushcclosure(L, createHostPtr, 0);
-                LuaNative.lua_setglobal(L, "DCS_Internal_CreateHost");
+                // ============================================================
+                // 3. FIELD ACCESS — ЭТО ВСЁ, ЧТО НУЖНО ДЛЯ ЧТЕНИЯ ПОЛЕЙ
+                // ============================================================
+                RegisterLuaFunction(L, Lua_GetField, "DCS_GetField");
+                RegisterLuaFunction(L, Lua_SetField, "DCS_SetField");
 
-                IntPtr addCompPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_AddComponent);
-                LuaNative.lua_pushcclosure(L, addCompPtr, 0);
-                LuaNative.lua_setglobal(L, "DCS_Internal_AddComponent");
+                // ============================================================
+                // 4. EVENTS
+                // ============================================================
+                RegisterLuaFunction(L, Lua_EmitEvent, "DCS_EmitEvent");
+                RegisterLuaFunction(L, Lua_RegisterSubscription, "DCS_RegisterSubscription");
+                RegisterLuaFunction(L, Lua_DeliverEvent, "DCS_DeliverEvent");
 
-                // 2. ADD THIS EXACT LINE: Binding the new permanent subscription bridge to Lua scope
-                IntPtr subPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_RegisterSubscription);
-                LuaNative.lua_pushcclosure(L, subPtr, 0);
-                LuaNative.lua_setglobal(L, "DCS_Internal_RegisterSubscription");
-
+                // ============================================================
+                // 5. BOOTSTRAP
+                // ============================================================
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";
-
                 if (File.Exists(bootstrapPath))
                 {
                     string bootstrapCode = File.ReadAllText(bootstrapPath);
@@ -93,44 +102,61 @@ namespace DynamicComponent.Lua
                 }
                 else
                 {
-                    Debug.LogError($"[LuaManager] Critical Error: Entry point bootstrap script not found at path: {bootstrapPath}");
+                    Debug.LogError($"[LuaManager] Bootstrap not found: {bootstrapPath}");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LuaManager] Failed to spin up the script engine framework: {e.Message}");
+                Debug.LogError($"[LuaManager] Initialization failed: {e.Message}");
             }
         }
 
-        // ============================================================
-        //  ADD THIS EXACT METHOD INSIDE LUA_MANAGER CLASS
-        // ============================================================
-        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private static int Lua_RegisterSubscription(IntPtr L)
+        private static void RegisterLuaFunction(IntPtr L, Func<IntPtr, int> fn, string name)
         {
-            // Read target unboxed integers from the native execution stack
-            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int eventTypeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
-
-            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
-            Host host = new Host { Id = hostId, Generation = hostData.Generation };
-
-            // Secure subscription allocation straight via your high-performance DCS architecture
-            if (_eventSubscriptionPool != null && _globalHostChain != null && _globalTypeChain != null)
-            {
-                // FIX: Directly invoking the concrete class instance instead of casting to IComponentPool interface
-                _eventSubscriptionPool.SystemSubscribe(host, eventTypeId, _globalHostChain, _globalTypeChain);
-
-                Debug.Log($"<color=cyan>[DCS LUA SUBSCRIPTION]</color> Host {hostId} permanently registered subscription to Event TypeId: {eventTypeId}");
-            }
-
-            return 0;
+            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
+            LuaNative.lua_pushcclosure(L, ptr, 0);
+            LuaNative.lua_setglobal(L, name);
         }
 
         // ============================================================
-        //  GLOBAL METADATA REFLECTION CALLBACKS
+        //  PUBLIC EVENT DELIVERY
         // ============================================================
 
+        /// <summary>
+        /// Delivers a DCS event to the global Lua event router.
+        /// Called from C# EventSystem when an event needs to be processed in Lua.
+        /// </summary>
+        /// <param name="hostId">Host that owns the event receiver.</param>
+        /// <param name="eventTypeId">Type ID of the event.</param>
+        /// <param name="packedHandle">Packed Handle of the event component.</param>
+        public static void DeliverEventToLua(int hostId, int eventTypeId, int packedHandle)
+        {
+            if (_instance == null || _instance._globalLuaState == null) return;
+
+            IntPtr L = _instance._globalLuaState.L;
+            LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
+
+            if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
+            {
+                LuaNative.lua_pushinteger(L, hostId);
+                LuaNative.lua_pushinteger(L, eventTypeId);
+                LuaNative.lua_pushinteger(L, packedHandle);
+
+                if (LuaNative.lua_pcallk(L, 3, 0, 0, 0, IntPtr.Zero) != 0)
+                {
+                    string error = _instance._globalLuaState.GetStringFromStack(-1);
+                    Debug.LogError($"[Lua] Event router error: {error}");
+                }
+            }
+        }
+
+        // ============================================================
+        //  P/INVOKE CALLBACKS
+        //  All callbacks receive IntPtr L (Lua state) and return int (number of return values).
+        //  Args are read from Lua stack using lua_tointegerx, lua_tostring, etc.
+        // ============================================================
+
+        // ---------- Meta ----------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetTypesCount(IntPtr L)
         {
@@ -142,79 +168,246 @@ namespace DynamicComponent.Lua
         private static int Lua_GetTypeNameById(IntPtr L)
         {
             int id = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            string typeName = ComponentRegistry.GetTypeNameById(id);
-            LuaNative.lua_pushstring(L, typeName);
+            string name = ComponentRegistry.GetTypeNameById(id);
+            LuaNative.lua_pushstring(L, name);
             return 1;
         }
 
-        // ============================================================
-        //  GLOBAL HIGH-PERFORMANCE DCS ALLOCATION BRIDGES
-        // ============================================================
-
+        // ---------- Component Operations ----------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private static int Lua_CreateHost(IntPtr L)
+        private static int Lua_CreateComponent(IntPtr L)
         {
-            Host newHost = HostManager.CreateHost();
-            LuaNative.lua_pushinteger(L, newHost.Id);
-            return 1;
-        }
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
-        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private static int Lua_AddComponent(IntPtr L)
-        {
-            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            // Validate host
+            if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
             ref HostData hostData = ref HostManager.GlobalHosts[hostId];
-            Host host = new Host { Id = hostId, Generation = hostData.Generation };
+            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
 
-            if (typeId >= 0 && typeId < ComponentRegistry.MaxComponentTypes)
+            // Validate type
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
-                IComponentPool targetPool = ComponentRegistry.Pools[typeId];
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
-                // FIX: Validating static chain context reference and routing allocation via interface method
-                if (targetPool != null && _globalHostChain != null)
+            var pool = ComponentRegistry.Pools[typeId];
+            if (pool != null && _globalHostChain != null)
+            {
+                Handle handle = pool.SystemAllocate(host, _globalHostChain);
+                LuaNative.lua_pushinteger(L, handle.Pack());
+                return 1;
+            }
+
+            LuaNative.lua_pushnil(L);
+            return 1;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_RemoveComponent(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            // Validate handle
+            if (packedHandle == HandleConfig.NULL_INDEX)
+            {
+                return 0;
+            }
+
+            Handle handle = new Handle(packedHandle);
+            var pool = ComponentRegistry.Pools[typeId];
+
+            if (pool != null && _globalHostChain != null)
+            {
+                // Get host from roster
+                if (pool.TryGetHost(handle, out Host host))
                 {
-                    targetPool.SystemAllocate(host, _globalHostChain);
-                    return 0;
+                    pool.SystemFree(host, _globalHostChain, handle);
                 }
             }
 
-            Debug.LogWarning($"[Lua DCS Bridge] Error: Allocation crash. TypeId: {typeId} on Host ID: {hostId}");
             return 0;
         }
 
-        // ============================================================
-        //  THE EVENT SYSTEM
-        // ============================================================
-
-        /// <summary>
-        /// Delivers a runtime DCS event straight into the global Lua execution context.
-        /// </summary>
-        /// <param name="hostId">The ID of the Host that generated or received the event.</param>
-        /// <param name="eventTypeId">The ComponentType ID of the event.</param>
-        public static void DeliverEventToLua(int hostId, int eventTypeId)
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_HasComponent(IntPtr L)
         {
-            if (_instance == null || _instance._globalLuaState == null) return;
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
-            IntPtr L = _instance._globalLuaState.L;
-
-            // 1. Find the global event router function we will define in bootstrap.lua
-            LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
-
-            // If the function exists on the stack, push the arguments and call it
-            if (LuaNative.lua_isfunction(L, -1))
+            // Validate host
+            if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
             {
-                LuaNative.lua_pushinteger(L, hostId);
-                LuaNative.lua_pushinteger(L, eventTypeId);
+                LuaNative.lua_pushboolean(L, 0);
+                return 1;
+            }
 
-                // Call the function with 2 arguments and 0 results
-                if (LuaNative.lua_pcallk(L, 2, 0, 0, 0, IntPtr.Zero) != 0)
+            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
+            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
+
+            bool has = false;
+            if (_globalHostChain != null)
+            {
+                ChainNode node = _globalHostChain.GetTypedHandle(host, typeId);
+                has = !node.IsNull;  // ChainNode.IsNull checks if Component is null
+            }
+
+            LuaNative.lua_pushboolean(L, has ? 1 : 0);
+            return 1;
+        }
+
+        // ---------- Field Access (unified, pool-driven) ----------
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_GetField(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            IntPtr ptr = LuaNative.lua_tolstring(L, 3, IntPtr.Zero);
+            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : null;
+
+            if (packedHandle == HandleConfig.NULL_INDEX)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            Handle handle = new Handle(packedHandle);
+            var pool = ComponentRegistry.Pools[typeId];
+
+            // Теперь TryGetDenseIndex есть в IComponentPool!
+            if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
+            {
+                pool.GetField(denseIndex, fieldName, L);
+                return 1;
+            }
+
+            LuaNative.lua_pushnil(L);
+            return 1;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_SetField(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            IntPtr ptr = LuaNative.lua_tolstring(L, 3, IntPtr.Zero);
+            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : null;
+
+            if (packedHandle == HandleConfig.NULL_INDEX)
+                return 0;
+
+            Handle handle = new Handle(packedHandle);
+            var pool = ComponentRegistry.Pools[typeId];
+
+            if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
+            {
+                pool.SetField(denseIndex, fieldName, L);
+            }
+
+            return 0;
+        }
+
+        // ---------- Events ----------
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_EmitEvent(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            // Validate host
+            if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
+            {
+                return 0;
+            }
+
+            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
+            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
+
+            var pool = ComponentRegistry.Pools[typeId];
+            if (pool != null && _globalHostChain != null)
+            {
+                Handle handle = pool.SystemAllocate(host, _globalHostChain);
+                if (!handle.IsNull)
                 {
-                    string error = _instance._globalLuaState.GetStringFromStack(-1);
-                    Debug.LogError($"[Lua Event Router Error] {error}");
+                    DeliverEventToLua(hostId, typeId, handle.Pack());
                 }
             }
+
+            return 0;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_RegisterSubscription(IntPtr L)
+        {
+            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int eventTypeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            // Validate host
+            if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
+            {
+                return 0;
+            }
+
+            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
+            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
+
+            if (_eventSubscriptionPool != null && _globalHostChain != null && _globalTypeChain != null)
+            {
+                _eventSubscriptionPool.SystemSubscribe(host, eventTypeId, _globalHostChain, _globalTypeChain);
+                Debug.Log($"[Lua] Subscribed Host {hostId} to Event {eventTypeId}");
+            }
+
+            return 0;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_DeliverEvent(IntPtr L)
+        {
+            int receiverHostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int eventTypeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+
+            // Validate
+            if (packedHandle == HandleConfig.NULL_INDEX || receiverHostId < 0)
+            {
+                return 0;
+            }
+
+            Handle handle = new Handle(packedHandle);
+            var pool = ComponentRegistry.Pools[eventTypeId];
+
+            if (pool != null && pool.TryGetDenseIndex(handle, out int _))
+            {
+                // Deliver to Lua via event router
+                DeliverEventToLua(receiverHostId, eventTypeId, packedHandle);
+            }
+
+            return 0;
+        }
+
+        // ---------- File Access ----------
+        public string ReadScriptFile(string relativePath)
+        {
+            string fullPath = $"{LuaRootPath}/{relativePath}";
+            if (!File.Exists(fullPath))
+            {
+                Debug.LogWarning($"[LuaManager] Script not found: {fullPath}");
+                return string.Empty;
+            }
+            return File.ReadAllText(fullPath);
+        }
+
+        void OnDestroy()
+        {
+            _globalLuaState?.Dispose();
         }
     }
 }

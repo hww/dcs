@@ -90,8 +90,8 @@ namespace DynamicComponent
             // Create handle and add to host chain
             Handle handle = new Handle
             {
-                Id = rosterIndex,
-                Generation = currentGen
+                Id = (ushort)rosterIndex,
+                Generation = (ushort)currentGen
             };
             chain.Add(hostHandle, handle, ComponentType<T>.Id);
 

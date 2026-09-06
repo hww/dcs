@@ -172,8 +172,8 @@ namespace DynamicComponent
                 // Create a message handle from the record
                 Handle msgHandle = new Handle
                 {
-                    Id = record.ComponentId,
-                    Generation = record.ComponentGeneration
+                    Id = (ushort)record.ComponentId,
+                    Generation = (ushort)record.ComponentGeneration
                 };
 
                 // Get the target pool and deliver the message

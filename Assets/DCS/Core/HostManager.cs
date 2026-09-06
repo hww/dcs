@@ -27,7 +27,7 @@ namespace DynamicComponent
     public static class HostManager
     {
         /// <summary>Maximum number of concurrently existing hosts.</summary>
-        public const int MaxGameObjects = 100000;
+        public const int MaxGameObjects = 65535;
 
         /// <summary>Array of all hosts.</summary>
         /// <remarks>
@@ -51,7 +51,7 @@ namespace DynamicComponent
         /// </remarks>
         static HostManager()
         {
-            for (int i = 0; i < MaxGameObjects; i++)
+            for (ushort i = 0; i < MaxGameObjects; i++)
             {
                 GlobalHosts[i] = new HostData
                 {
@@ -88,7 +88,7 @@ namespace DynamicComponent
             host.Generation++;
             _firstFree = host.Next;
 
-            return new Host { Id = id, Generation = host.Generation };
+            return new Host { Id = (ushort)id, Generation = (ushort)host.Generation };
         }
 
         /// <summary>Checks whether a host handle is valid.</summary>

@@ -412,7 +412,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e278221ed7834764b8f4057a92aa4d37, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridGenerator
-  N: 30
+  N: 50
   Spacing: 2
   MaxRotationSpeed: 180
 --- !u!4 &689828126

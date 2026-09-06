@@ -25,7 +25,7 @@ namespace DynamicComponent
         /// Used as an index into HostManager.GlobalHosts.
         /// Does not change during the host's lifetime.
         /// </remarks>
-        public int Id;
+        public ushort Id;
 
         /// <summary>Host generation — protects against stale handles.</summary>
         /// <remarks>
@@ -33,7 +33,7 @@ namespace DynamicComponent
         /// Allows detection of stale host references:
         /// HostManager.IsValid(host) => GlobalHosts[host.Id].Generation == host.Generation
         /// </remarks>
-        public int Generation;
+        public ushort Generation;
 
         /// <summary>Index of the first component in the chain (HostChainManager).</summary>
         /// <remarks>
