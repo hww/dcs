@@ -170,5 +170,39 @@ namespace DynamicComponent
         {
             return (ComponentPool<T>)Pools[ComponentType<T>.Id];
         }
+
+        /// <summary>
+        /// Gets the total number of registered component types in the system.
+        /// </summary>
+        public static int GetTypesCount()
+        {
+            return _typeCounter;
+        }
+
+        /// <summary>
+        /// Resolves a component structure name by its unique integer TypeId.
+        /// </summary>
+        /// <param name="id">The unique component TypeId.</param>
+        /// <returns>The string name of the component struct type, or an empty string if invalid.</returns>
+        public static string GetTypeNameById(int id)
+        {
+            if (id < 0 || id >= _typeCounter || Pools[id] == null)
+            {
+                return string.Empty;
+            }
+
+            System.Type poolType = Pools[id].GetType();
+            if (poolType.IsGenericType)
+            {
+                System.Type[] genericArgs = poolType.GetGenericArguments();
+                if (genericArgs.Length > 0)
+                {
+                    return genericArgs[0].Name;
+                }
+            }
+
+            return string.Empty;
+        }
+
     }
 }
