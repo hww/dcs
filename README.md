@@ -161,6 +161,12 @@ HostManager.DestroyHost(player, hostChain);
 
 ---
 
+## 📊 Block Diagram
+
+The diagram below illustrates the complete chain of connections and data flows between system components. It clearly shows the interaction logic between modules and the end‑to‑end sequence of data processing.
+
+![Block Diagram](Docs/connections.png)
+
 ## ⚠️ Key Architectural Decisions
 
 ### 1. Inversion of the Original Structure
