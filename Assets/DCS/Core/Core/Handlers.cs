@@ -33,6 +33,7 @@ namespace DynamicComponent
     /// Stored as 16-bit ID + 16-bit Generation. Packed as a 32-bit integer.
     /// Generation protects against stale references (Handle/Generation validation happens inside the Pool).
     /// </summary>
+    [System.Serializable]
     public struct Host
     {
         public ushort Id;

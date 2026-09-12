@@ -23,6 +23,8 @@ namespace DynamicComponent.Lua
 
         private string LuaRootPath => Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
+        public IntPtr MainState => _globalLuaState != null ? _globalLuaState.L : IntPtr.Zero;
+
         /// <summary>
         /// Binds the active game loop structural layout manager to the bridge context.
         /// Must be called before LuaManager initializes.
@@ -83,6 +85,7 @@ namespace DynamicComponent.Lua
                 // ============================================================
                 RegisterLuaFunction(L, Lua_GetField, "DCS_GetField");
                 RegisterLuaFunction(L, Lua_SetField, "DCS_SetField");
+                RegisterLuaFunction(L, Lua_TryGetField, "DCS_TryGetField");
 
                 // ============================================================
                 // 4. EVENTS
@@ -259,21 +262,22 @@ namespace DynamicComponent.Lua
                 has = !node.IsNull;  // ChainNode.IsNull checks if Component is null
             }
 
-            LuaNative.lua_pushboolean(L, has ? 1 : 0);
+            LuaNative.lua_pushboolean(L, has);
             return 1;
         }
 
         // ---------- Field Access (unified, pool-driven) ----------
-        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetField(IntPtr L)
         {
             int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             IntPtr ptr = LuaNative.lua_tolstring(L, 3, IntPtr.Zero);
-            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : null;
 
-            if (packedHandle == HandleConfig.NULL_INDEX)
+            // Используем UTF8 вместо Ansi для полной поддержки кодировок скриптов
+            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringUTF8(ptr) : null;
+
+            if (packedHandle == HandleConfig.NULL_INDEX || string.IsNullOrEmpty(fieldName))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
@@ -282,15 +286,72 @@ namespace DynamicComponent.Lua
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
 
-            // Теперь TryGetDenseIndex есть в IComponentPool!
             if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
             {
-                pool.GetField(denseIndex, fieldName, L);
-                return 1;
+                // Вызываем переработанный метод, который теперь возвращает bool
+                bool success = pool.GetField(denseIndex, fieldName, L);
+
+                if (!success)
+                {
+                    // ЖЕСТКИЙ КРАШ: Если свитчи в C# вернули false, значит поля не существует
+                    return LuaNative.luaL_error(L, $"[DCS Error] Field '{fieldName}' does not exist on component type {typeId} for Handle {packedHandle}");
+                }
+
+                // Если успех, значение уже лежит на стеке. Вычисляем количество возвращаемых значений.
+                // position возвращает 3 числа (X, Y, Z), большинство остальных полей — 1.
+                return fieldName.Equals("position", StringComparison.OrdinalIgnoreCase) ||
+                       fieldName.Equals("rotation", StringComparison.OrdinalIgnoreCase) ? 3 : 1;
             }
 
             LuaNative.lua_pushnil(L);
             return 1;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_TryGetField(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            IntPtr ptr = LuaNative.lua_tolstring(L, 3, IntPtr.Zero);
+            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringUTF8(ptr) : null;
+
+            if (packedHandle == HandleConfig.NULL_INDEX || string.IsNullOrEmpty(fieldName))
+            {
+                LuaNative.lua_pushboolean(L, 0); // success = false
+                LuaNative.lua_pushnil(L);       // value = nil
+                return 2;
+            }
+
+            Handle handle = new Handle(packedHandle);
+            var pool = ComponentRegistry.Pools[typeId];
+
+            if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
+            {
+                // Запускаем ТОТ ЖЕ САМЫЙ метод пула
+                bool success = pool.GetField(denseIndex, fieldName, L);
+
+                if (success)
+                {
+                    // УСПЕХ: Значение уже на стеке. Подкладываем под него true для мульти-возврата
+                    LuaNative.lua_pushboolean(L, 1); // push true
+
+                    // Вычисляем размер результата, чтобы правильно повернуть стек в Lua 5.4
+                    int valueSize = fieldName.Equals("position", StringComparison.OrdinalIgnoreCase) ||
+                                    fieldName.Equals("rotation", StringComparison.OrdinalIgnoreCase) ? 3 : 1;
+
+                    // Вращаем стек: сдвигаем всё, начиная с позиции флага, на 1 элемент вперед
+                    // Если вернулось 1 число, индекс начала ротации: -(valueSize + 1) -> -2
+                    // Если вернулся Vector3 (3 числа), индекс начала ротации: -> -4
+                    LuaNative.lua_rotate(L, -(valueSize + 1), 1);
+
+                    return valueSize + 1; // Возвращаем, например, 2 (true + число) или 4 (true + X,Y,Z)
+                }
+            }
+
+            // Если пула нет, хэндл протух или свитч вернул false (поля нет)
+            LuaNative.lua_pushboolean(L, 0); // success = false
+            LuaNative.lua_pushnil(L);       // value = nil
+            return 2;
         }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
@@ -299,9 +360,9 @@ namespace DynamicComponent.Lua
             int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             IntPtr ptr = LuaNative.lua_tolstring(L, 3, IntPtr.Zero);
-            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) : null;
+            string fieldName = ptr != IntPtr.Zero ? Marshal.PtrToStringUTF8(ptr) : null;
 
-            if (packedHandle == HandleConfig.NULL_INDEX)
+            if (packedHandle == HandleConfig.NULL_INDEX || string.IsNullOrEmpty(fieldName))
                 return 0;
 
             Handle handle = new Handle(packedHandle);
@@ -309,10 +370,17 @@ namespace DynamicComponent.Lua
 
             if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
             {
-                pool.SetField(denseIndex, fieldName, L);
+                //pool.SetField теперь обязан возвращать bool в вашем интерфейсе пулов!
+                bool success = pool.SetField(denseIndex, fieldName, L);
+
+                if (!success)
+                {
+                    // КРАШ: Попытка записи в несуществующее поле — это критическая ошибка
+                    return LuaNative.luaL_error(L, $"[DCS Write Error] Cannot write to non-existent field '{fieldName}' on component type {typeId}");
+                }
             }
 
-            return 0;
+            return 0; // SetField в Lua никогда ничего не возвращает
         }
 
         // ---------- Events ----------

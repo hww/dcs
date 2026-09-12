@@ -134,7 +134,7 @@ namespace DynamicComponent
     ///
     /// This interface enables type-safe access to pools without knowing T.
     /// </remarks>
-    public interface IComponentPool
+    public interface IComponentPool : IFieldAccessForIndex
     {
         /// <summary>
         /// Allows non-generic allocation via the native Lua bridge
@@ -172,23 +172,62 @@ namespace DynamicComponent
         bool TryGetDenseIndex(Handle handle, out int denseIndex);
 
         /// <summary>
+        /// Tries to get the Host that owns the component identified by the given Handle.
+        /// Validates the Handle's Generation against the Roster slot.
+        /// </summary>
+        bool TryGetHost(Handle handle, out Host host);
+    }
+
+    public interface IFieldAccessForIndex
+    {
+        /// <summary>
         /// Reads a field from a component and pushes it to Lua stack.
         /// Default implementation does nothing.
         /// Override in concrete pools (PositionPool, HealthPool, etc.).
         /// </summary>
-        void GetField(int denseIndex, string fieldName, IntPtr L);
+        bool GetField(int denseIndex, string fieldName, IntPtr L);
 
         /// <summary>
         /// Reads a value from Lua stack and writes it to a component field.
         /// Default implementation does nothing.
         /// Override in concrete pools (PositionPool, HealthPool, etc.).
         /// </summary>
-        void SetField(int denseIndex, string fieldName, IntPtr L);
+        bool SetField(int denseIndex, string fieldName, IntPtr L);
+    }
+
+    public interface IFieldAccess
+    {
         /// <summary>
-        /// Tries to get the Host that owns the component identified by the given Handle.
-        /// Validates the Handle's Generation against the Roster slot.
+        /// Reads a field from a component and pushes it to Lua stack.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
         /// </summary>
-        bool TryGetHost(Handle handle, out Host host);
+        bool GetField(string fieldName, IntPtr L);
+
+        /// <summary>
+        /// Reads a value from Lua stack and writes it to a component field.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        bool SetField(string fieldName, IntPtr L);
+
+    }
+
+    public interface IFactAccess
+    {
+        /// <summary>
+        /// Reads a field from a component and pushes it to Lua stack.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        bool GetFact(string fieldName, IntPtr L);
+
+        /// <summary>
+        /// Reads a value from Lua stack and writes it to a component field.
+        /// Default implementation does nothing.
+        /// Override in concrete pools (PositionPool, HealthPool, etc.).
+        /// </summary>
+        bool SetFact(string fieldName, IntPtr L);
 
     }
 

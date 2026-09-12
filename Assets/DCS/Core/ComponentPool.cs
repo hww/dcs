@@ -64,7 +64,7 @@ namespace DynamicComponent
     ///
     /// Thread Safety: Not thread-safe. All operations must be on the main thread.
     /// </remarks>
-    public class ComponentPool<T> : IComponentPool where T : struct
+    public class ComponentPool<T> : IComponentPool, IFieldAccessForIndex where T : struct
     {
         // ============================================================
         //  PUBLIC STATE
@@ -427,9 +427,10 @@ namespace DynamicComponent
         /// Default implementation does nothing.
         /// Override in concrete pools (PositionPool, HealthPool, etc.).
         /// </summary>
-        public virtual void GetField(int denseIndex, string fieldName, IntPtr L)
+        public virtual bool GetField(int denseIndex, string fieldName, IntPtr L)
         {
             LuaNative.lua_pushnil(L);
+            return false;
         }
 
         /// <summary>
@@ -437,9 +438,10 @@ namespace DynamicComponent
         /// Default implementation does nothing.
         /// Override in concrete pools (PositionPool, HealthPool, etc.).
         /// </summary>
-        public virtual void SetField(int denseIndex, string fieldName, IntPtr L)
+        public virtual bool SetField(int denseIndex, string fieldName, IntPtr L)
         {
             // Nothing by default
+            return false;
         }
 
         /// <summary>

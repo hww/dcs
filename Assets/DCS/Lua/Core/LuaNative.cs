@@ -95,6 +95,7 @@ namespace DynamicComponent.Lua
 
         [DllImport(LUA_DLL, EntryPoint = "lua_pushboolean")]
         public static extern void lua_pushboolean(IntPtr L, int b);
+        public static void lua_pushboolean(IntPtr L, bool b) => lua_pushboolean(L, b ? 1 : 0);
 
         [DllImport(LUA_DLL, EntryPoint = "lua_pushinteger")]
         public static extern void lua_pushinteger(IntPtr L, long n);
@@ -129,6 +130,13 @@ namespace DynamicComponent.Lua
 
         [DllImport(LUA_DLL, EntryPoint = "lua_touserdata")]
         public static extern IntPtr lua_touserdata(IntPtr L, int idx);
+
+        // ============================================================
+        // SWAPS AND ROTATES
+        // ============================================================
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_rotate", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void lua_rotate(IntPtr L, int idx, int n);
 
         // ============================================================
         //  TYPE CHECKING
