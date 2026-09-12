@@ -2,6 +2,7 @@
 using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
+using DynamicComponent.Lua.Bindings;
 
 namespace DynamicComponent
 {
@@ -103,7 +104,7 @@ namespace DynamicComponent
             Debug.Log($"<color=green>[Dataseter Stream]</color> Стриминг локации '{mapName}' завершен.");
 
             onComplete?.Invoke();
-            LuaSpatialBridge.NotifyZoneEvent(0, "OnMapStreamingFinished");
+            MapBindings.NotifyZoneEvent(0, "OnMapStreamingFinished");
         }
 
         public static void UnloadMapDataset()

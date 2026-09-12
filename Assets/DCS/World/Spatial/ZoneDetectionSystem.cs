@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using DynamicComponent.Lua.Bindings;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DynamicComponent
@@ -41,7 +42,7 @@ namespace DynamicComponent
             {
                 if (!_previouslyInsideZones.Contains(zoneId))
                 {
-                    LuaSpatialBridge.NotifyZoneEvent(zoneId, "OnZoneEntered");
+                    MapBindings.NotifyZoneEvent(zoneId, "OnZoneEntered");
                 }
             }
 
@@ -50,7 +51,7 @@ namespace DynamicComponent
             {
                 if (!_currentInsideZones.Contains(zoneId))
                 {
-                    LuaSpatialBridge.NotifyZoneEvent(zoneId, "OnZoneExited");
+                    MapBindings.NotifyZoneEvent(zoneId, "OnZoneExited");
                 }
             }
 
