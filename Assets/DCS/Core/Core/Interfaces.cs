@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace DynamicComponent
 {
@@ -230,5 +231,38 @@ namespace DynamicComponent
         bool SetFact(string fieldName, IntPtr L);
 
     }
+    /// <summary>
+    /// The object can be associated with a Host
+    /// </summary>
+    public interface IHostRefference
+    {
+        Host Host { get; }
+        void LinkToHost(Host host);
+        void UnlinkFromHost();
+    }
 
+    /// <summary>
+    /// Give the object lifecycle menthods
+    /// </summary>
+    public interface ILifeCycle
+    {
+        void Birth();
+        void Kill();
+    }
+
+    /// <summary>
+    /// Makes the object inspectable
+    /// </summary>
+    public interface IInspectable
+    {
+        public void Inspect(StringBuilder sb, int indentLevel);
+    }
+
+    /// Makes the object inspectable
+    /// </summary>
+    public interface IFactable
+    {
+        public DynamicFacts Facts { get; }
+        public EFactsLifetime FactsLifetime { get; }
+    }
 }
