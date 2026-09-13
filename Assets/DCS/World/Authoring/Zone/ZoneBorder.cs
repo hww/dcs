@@ -4,18 +4,51 @@ namespace DynamicComponent
 {
     public class ZoneBorder : BaseProxy
     {
-        [Tooltip("Точки, описывающие полигон или кривую линии границы зоны в локальном пространстве")]
+        [Tooltip("Точки границы в локальном пространстве.")]
         public Vector3[] Points;
+
+        [Tooltip("Замыкать последнюю точку с первой.")]
+        public bool Closed = true;
+
+        public int PointCount =>
+            Points != null ? Points.Length : 0;
+
+        public Vector3 GetPoint(int index)
+        {
+            if (Points == null || index < 0 || index >= Points.Length)
+                return Vector3.zero;
+
+            return Points[index];
+        }
+
+        public void SetPoint(int index, Vector3 localPosition)
+        {
+            if (Points == null || index < 0 || index >= Points.Length)
+                return;
+            Points[index] = localPosition;
+        }
 
         private void OnDrawGizmos()
         {
-            if (Points == null || Points.Length < 2) return;
-            Gizmos.color = Color.cyan;
+            if (Points == null || Points.Length < 2)
+                return;
+
+            Gizmos.color = Color.white;
+
             for (int i = 0; i < Points.Length - 1; i++)
             {
-                // Отрисовка гизмо в мировом пространстве для удобства дизайнера
-                Gizmos.DrawLine(transform.TransformPoint(Points[i]), transform.TransformPoint(Points[i + 1]));
+                Gizmos.DrawLine(
+                    transform.TransformPoint(Points[i]),
+                    transform.TransformPoint(Points[i + 1]));
+            }
+
+            if (Closed && Points.Length >= 3)
+            {
+                Gizmos.DrawLine(
+                    transform.TransformPoint(Points[Points.Length - 1]),
+                    transform.TransformPoint(Points[0]));
             }
         }
     }
 }
+

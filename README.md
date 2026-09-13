@@ -1,231 +1,305 @@
 # Dynamic Component System (DCS)
 
-↪ **High-Performance Component Architecture for Unity Games**
+**High-performance, universal gameplay framework for Unity.**
 
-DCS is an implementation of a dynamic component system inspired by the architecture used at Insomniac Games for titles like Ratchet & Clank. The system is designed for maximum performance on modern CPUs through Data-Oriented Design, dense memory pools, and a safe handle-based reference model.
+DCS is a dynamic component architecture designed to support data-oriented runtime
+systems, world data, spatial metadata, navigation, interaction and Lua scripting.
 
----
+The system is intentionally more abstract than a typical Unity gameplay framework.
+That complexity is deliberate:
 
-## 📌 Key Features
-
-- **Dense Pools (Dense Arrays)** — Components of the same type are stored contiguously, ensuring ideal data locality and efficient cache utilization.
-- **Sparse Roster with Generational Handles** — Safe references to components with protection against dangling pointers (use-after-free).
-- **Swap-Back Deletion** — O(1) component deallocation with automatic pool defragmentation.
-- **Two-Phase Event System** — Zero-allocation message delivery through event pools and subscriptions.
-- **Declarative Configuration** — Capacity and update phase management via C# attributes.
-- **Global Masking** — Instant disable of entire component categories (pause, object types) with a single bitwise operation.
-- **Multi-Threading Ready** — Separation of synchronous (PPU) and asynchronous (Job System) updates.
-
-## 📌 Current Status: Core Complete, System in Development
-
-This repository contains the **core DCS implementation** — a high-performance 
-component pool architecture with event system and generational handles.
-
-**What's implemented:**
-- Component pools with dense arrays and sparse roster
-- Safe handle system with generation validation
-- Event system with subscriptions and two-phase delivery
-- Host management and component chains
-
-**Next steps (in progress):**
-- State machine system built on top of DCS
-- Process-oriented behavior system with coroutine-based sequencing
-- Full DOD adaptation for high-level game logic
-
-This is a living project. Contributions and feedback are welcome!
+> **Universal systems require abstractions.  
+> More abstractions require clearer boundaries.  
+> This repository structure is part of the architecture.**
 
 ---
 
-## 🏗️ Architecture at a Glance
+## Architecture at a Glance
 
+DCS is organized around the questions each system answers:
 
-```txt
+```text
+Core
+  "How does everything work?"
 
-┌────────────────────────────────────────────────────┐
-│                       HOST                         │
-│                 (Component Owner)                  │
-└────────────────────────────────────────────────────┘
-                          │
-           ┌──────────────┴───────────────┐
-           ▼                              ▼
-┌─────────────────────┐        ┌─────────────────────┐
-│   DATA CONTOUR      │        │   EVENT CONTOUR     │
-│ Static Components   │        │ Dynamic Events      │
-│ (Health, Position)  │        │ (DamageEvent,       │
-│ Linear Iteration    │        │  Subscription)      │
-└─────────────────────┘        └─────────────────────┘
+World
+  "What is everything made of?"
 
+Spatial
+  "Where is everything?"
+
+Gameplay
+  "What is happening?"
+
+Navigation
+  "Where can we go?"
+
+Interaction
+  "What can we do?"
+
+Lua
+  "How is high-level gameplay scripted?"
 ```
 
-**Host (Entity)** — A lightweight identifier that links all components in a chain.
+The main relationship is:
 
-**Components** — `struct` data stored in dense pools.
-
-**Events** — Also components with a short lifecycle (typically 1 frame), delivered through the subscription system.
-
----
-
-## 🧩 Core API
-
-```csharp
-// Create a host
-Host player = HostManager.CreateHost();
-
-// Allocate a component
-Handle healthHandle = DCS.Allocate<Health>(player, hostChain);
-
-// Access data
-ref Health health = ref DCS.ResolveHandle<Health>(healthHandle);
-health.Value = 100;
-
-// Create an event
-Handle damageHandle = eventPool.AllocateEvent(player, 0x0001, hostChain);
-ref DamageEvent ev = ref eventPool.ResolveHandle(damageHandle);
-ev.Amount = 50;
-
-// Subscribe to an event
-Handle subHandle = subManager.AllocateSubscription<DamageEvent, EnemyFSM>(
-    player, fsmHandle, 0x0001, hostChain, typeChain
-);
-
-// Process events (called in Update)
-DCS.UpdateComponents(EUpdateStage.Update, scheduler, subManager, typeChain, hostChain);
-
-// Destroy host with all components
-HostManager.DestroyHost(player, hostChain);
+```text
+                         ┌──────────────┐
+                         │     Core     │
+                         │  How it works│
+                         └──────┬───────┘
+                                │
+              ┌─────────────────┼─────────────────┐
+              ▼                 ▼                 ▼
+           World             Spatial             Lua
+        "What exists?"      "Where?"          "How script?"
+              │                 │
+              │          ┌──────┴──────┐
+              │          ▼             ▼
+              │     Navigation    Interaction
+              │       "Where?"      "What?"
+              │          \             /
+              └───────────\───────────/
+                           ▼
+                       Gameplay
+                    "What happens?"
 ```
 
 ---
 
-## 📊 Performance Characteristics
+# Project Manifest
 
-| Operation | Complexity | Notes |
-| ----------- | ------------ | ------- |
-| Allocate component | O(1) | Dense allocation + roster setup |
-| Resolve handle | O(1) | Generation check + array access |
-| Free component | O(1) + O(N)* | Swap-Back + chain removal (*host components) |
-| Get component by type | O(N) | Scans host's component chain |
-| Poll events | O(E × S) | E = events, S = subscriptions per event type |
-| Deliver events | O(I) | I = number of invocations |
-
-**Memory:**
-
-- `ComponentPool<T>`: `capacity × (sizeof(T) + 16)` bytes
-- `HostChain`: up to 500,000 nodes × 24 bytes ≈ 12 MB
-- `TypeChain`: up to 100,000 nodes × 24 bytes ≈ 2.4 MB
-
----
-
-## 📂 Repository Structure
-
-```
-├── README.md                          # This file
-├── Docs/
-│   └── dcs-documentation.md           # Complete API technical documentation
-├── Assets/DCS
-│   ├── Core
-│   │   ├── ComponentPool.cs           # The components pool
-│   │   ├── ComponentRegistry.cs       # The list of registered component's types
-│   │   ├── ComponentSystem.cs         # Updater of all types in order of UpdateScheduler
-│   │   ├── Core
-│   │   │   ├── Attibutes.cs
-│   │   │   ├── Enums.cs
-│   │   │   ├── Handlers.cs
-│   │   │   ├── HostData.cs
-│   │   │   ├── Interfaces.cs
-│   │   ├── EventPool.cs               # The event's pool
-│   │   ├── EventSubscription.cs       # Subscribe to events
-│   │   ├── EventSystem.cs             # Deliver events to subscribers
-│   │   ├── HostChain.cs               # Connect components to a chain to a host
-│   │   ├── HostPool.cs                # Manage list of hosts
-│   │   ├── TypeChain.cs               # Connect components to a chain to other component
-│   │   ├── UpdateScheduler.cs         # Sorting component types by priority
-```
+| Module | Question | Responsibility | Documentation |
+|---|---|---|---|
+| **Core** | How does everything work? | Dynamic components, hosts, handles, facts, events and scheduling | [README](Core/README.md) · [Reference](Docs/DCS_Core_Reference.md) |
+| **World** | What is everything made of? | Authoring, datasets, build, runtime world and streaming | [README](World/README.md) |
+| **Spatial** | Where is everything? | Geometry, surfaces, spatial index and spatial queries | [README](Spatial/README.md) |
+| **Gameplay** | What is happening? | Gameplay rules, state, zones and runtime reactions | [README](Gameplay/README.md) |
+| **Navigation** | Where can we go? | Navigation surfaces, paths, costs and traversal | [README](Navigation/README.md) |
+| **Interaction** | What can we do? | Interactable objects, slots, actions and reservations | [README](Interaction/README.md) |
+| **Lua** | How is gameplay scripted? | Lua runtime and C# ↔ Lua bindings | [README](Lua/README.md) |
+| **Libs** | What makes code easier to write? | Small reusable helpers and syntax sugar | [README](Libs/README.md) |
+| **Plugins** | What external code do we use? | DLLs, native libraries and third-party dependencies | [README](Plugins/README.md) |
+| **Examples** | How do we use DCS? | Demonstration and experimental Unity scenes | [README](Examples/README.md) |
+| **Tests** | Does it work? | Unit, integration, build and runtime test benches | [README](Tests/README.md) |
 
 ---
 
-## 📖 Documentation
+# Documentation
 
-| Document | Description |
-| ---------- | ------------- |
-| **[Full API Documentation](Docs/dcs-documentation.md)** | Detailed description of all classes, structs, and system methods |
-| **[Unity Adaptation Manifest](https://hww.github.io/articles/2013/terrance_cohen_dcs/manifest)** | Analysis of C# limitations and architectural decisions |
-| **[Architectural Reconstruction](https://hww.github.io/articles/2013/terrance_cohen_dcs/unity-version)** | Deep dive into the original DCS from Insomniac Games |
+DCS uses two documentation levels.
 
----
+## Module READMEs
 
-## 🔗 Source Materials
+Every major module has a short `README.md`.
 
-- [Original Presentation by Terrance Cohen](https://hww.github.io/articles/2013/terrance_cohen_dcs/ADynamicComponentArchitectureForHighPerformanceGameplay.pptx) (Insomniac Games, 2010)
-- [Translation and Analytical Commentary](https://hww.github.io/articles/2013/terrance_cohen_dcs/)
+These documents describe:
 
----
+- purpose;
+- responsibilities;
+- what the module does **not** own;
+- dependency direction;
+- mental model;
+- internal structure.
 
-## 📊 Block Diagram
+They are architectural maps, not API references.
 
-The diagram below illustrates the complete chain of connections and data flows between system components. It clearly shows the interaction logic between modules and the end‑to‑end sequence of data processing.
-
-<img alt="Block Diagram" src="Docs/connections.png" width="460" align="center"/>
-
-## ⚠️ Key Architectural Decisions
-
-### 1. Inversion of the Original Structure
-
-In the original DCS (for IBM Cell), a dense roster and sparse component array were used. In this implementation for modern CPUs, the structure is inverted: **dense component pools + sparse roster**. This ensures ideal data locality during iteration.
-
-### 2. No Virtual Methods in Hot Paths
-
-Type comparison is performed through a scalar `TypeId` (integer identifier), allowing the JIT compiler and Burst to optimize `switch` statements into jump tables.
-
-### 3. Prius Initialization Pattern
-
-Instead of passing heavy configuration data into components, the **Prius** pattern is used — an external object with initialization data passed to `Allocate()` and then to the component's `Init()` method.
-
-### 4. Separation of Data and Event Contours
-
-- **Data Contour**: State components (Health, Transform) — updated linearly, require maximum performance.
-- **Event Contour**: Events and subscriptions — manage behavior, have a short lifecycle.
-
----
-
-## 🧪 Example: Shot System
-
-Instead of creating full GameObject instances for projectiles, a component-based approach is used:
-
-```csharp
-// Shot state component (long-lived)
-public struct Shot : IComponent {
-    public int RosterIndex { get; set; }
-    public Handle CurrentAction;  // Reference to current action
-}
-
-// Action component (POD struct, can be processed asynchronously)
-public struct ShotMoveForward : IComponent {
-    public int RosterIndex { get; set; }
-    public Vector3 Location;
-    public Vector3 Direction;
-    public float Speed;
-}
-
-// SPU (Job System) logic
-public struct ShotMoveForwardJob : IJobParallelFor {
-    public NativeArray<ShotMoveForward> Actions;
-    public void Execute(int index) {
-        Actions[index] = Actions[index] with {
-            Location = Actions[index].Location + Actions[index].Direction * Actions[index].Speed * Time.deltaTime
-        };
-    }
-}
+```text
+Core/README.md
+World/README.md
+Spatial/README.md
+Gameplay/README.md
+Navigation/README.md
+Interaction/README.md
+Lua/README.md
+Libs/README.md
+Plugins/README.md
+Examples/README.md
+Tests/README.md
 ```
 
+## Detailed Documentation
+
+Long-form technical documentation lives in `Docs/`.
+
+The existing `dcs-documentation.md` describes the **Core DCS implementation**:
+hosts, handles, component pools, event systems, chains, registries and scheduling.
+
+It should therefore be renamed to:
+
+```text
+Docs/DCS_Core_Reference.md
+```
+
+This keeps the name aligned with what the document actually describes.
+
 ---
 
-## 🤝 Contributing
+# Architectural Boundaries
 
-We welcome improvements and optimizations. Please review the documentation before submitting a Pull Request.
+DCS deliberately separates concepts that are often mixed together.
+
+### World
+
+Describes what exists, how it is authored, compiled and streamed.
+
+### Spatial
+
+Describes where things are and what spatial metadata is associated with them.
+
+### Navigation
+
+Describes where an agent can move and how it can traverse the world.
+
+### Interaction
+
+Describes what actions are available at an object or location.
+
+### Gameplay
+
+Describes what those facts mean for the game and what happens as a consequence.
+
+For example:
+
+```text
+A table exists
+      │
+      ▼
+World
+"this object exists"
+      │
+      ▼
+Spatial
+"this surface is here"
+      │
+      ├──────────────► Navigation
+      │                "this agent can traverse it"
+      │
+      └──────────────► Interaction
+                       "this object has a VaultSlot"
+                                │
+                                ▼
+                            Gameplay
+                       "perform the vault"
+```
+
+No single system needs to own all of these meanings.
 
 ---
 
-## 📄 License
+# Data Flow
 
-MIT
+Authoring data and runtime data are intentionally separated.
+
+```text
+Unity Authoring
+      │
+      ▼
+Build / Compile
+      │
+      ▼
+Compiled Data
+      │
+      ├── Spatial
+      ├── Navigation
+      ├── Interaction
+      └── Gameplay
+      │
+      ▼
+Runtime
+```
+
+The goal is to move expensive or repetitive work out of runtime whenever it can be
+prepared during the build phase.
+
+---
+
+# Core Philosophy
+
+### Universalize contracts, not implementations
+
+Different systems may use different internal data structures while exposing stable
+contracts to their consumers.
+
+### Separate data from behavior
+
+Compiled world data should be optimized for consumption by runtime systems.
+
+### Keep domain boundaries explicit
+
+A class should have one obvious architectural home.
+
+### Avoid universal managers
+
+Do not create a manager simply because several systems need to communicate.
+
+Prefer small systems with explicit contracts.
+
+### Build expensive information offline
+
+If information can be compiled once, do not reconstruct it every frame or every load.
+
+### Optimize the hot path without hiding the architecture
+
+Performance-oriented storage belongs inside the appropriate subsystem. The public
+architecture should remain understandable.
+
+---
+
+# Repository Structure
+
+```text
+Assets/DCS/
+│
+├── Core/             → How does everything work?
+├── World/            → What is everything made of?
+├── Spatial/          → Where is everything?
+├── Gameplay/         → What is happening?
+├── Navigation/       → Where can we go?
+├── Interaction/      → What can we do?
+├── Lua/              → How is gameplay scripted?
+├── Libs/             → What makes implementation easier?
+├── Plugins/          → What external code do we use?
+├── Examples/         → How do we use DCS?
+├── Tests/             → Does it work?
+└── Docs/              → Detailed technical documentation
+```
+
+---
+
+# A Rule for Adding New Code
+
+When adding a new feature, ask:
+
+```text
+Where is it?
+        → Spatial
+
+What is it made of / where is it authored?
+        → World
+
+Where can it go?
+        → Navigation
+
+What can be done with it?
+        → Interaction
+
+What happens because of it?
+        → Gameplay
+
+Is it generic infrastructure?
+        → Core
+```
+
+If the answer is unclear, do not immediately create another `Manager`.
+
+The ambiguity usually means that the responsibility needs to be clarified first.
+
+---
+
+# Status
+
+DCS is an evolving framework.
+
+The module READMEs define the intended architectural boundaries.
+Detailed documentation describes the current implementation state.
