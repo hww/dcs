@@ -1,0 +1,8 @@
+{
+    "name": "DCS.Examples",
+    "references": [
+        "DCS.Framework" 
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": []
+}

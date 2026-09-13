@@ -67,25 +67,29 @@ The main relationship is:
 
 ---
 
-# Project Manifest
+## Project Manifest
+
+Main DCS Manifest [README](DCS/README.md)
+
+The secondary level manifests list
 
 | Module | Question | Responsibility | Documentation |
-|---|---|---|---|
-| **Core** | How does everything work? | Dynamic components, hosts, handles, facts, events and scheduling | [README](Core/README.md) · [Reference](Docs/DCS_Core_Reference.md) |
-| **World** | What is everything made of? | Authoring, datasets, build, runtime world and streaming | [README](World/README.md) |
-| **Spatial** | Where is everything? | Geometry, surfaces, spatial index and spatial queries | [README](Spatial/README.md) |
-| **Gameplay** | What is happening? | Gameplay rules, state, zones and runtime reactions | [README](Gameplay/README.md) |
+| --- | --- | --- | --- |
+| **Core** | How does everything work? | Dynamic components, hosts, handles, facts, events and scheduling | [README](DCS/Core/README.md) · [Reference](DCS/Docs/DCS_Core_Reference.md) |
+| **World** | What is everything made of? | Authoring, datasets, build, runtime world and streaming | [README](DCS/World/README.md) |
+| **Spatial** | Where is everything? | Geometry, surfaces, spatial index and spatial queries | [README](DCS/Spatial/README.md) |
+| **Gameplay** | What is happening? | Gameplay rules, state, zones and runtime reactions | [README](DCS/Gameplay/README.md) |
 | **Navigation** | Where can we go? | Navigation surfaces, paths, costs and traversal | [README](Navigation/README.md) |
-| **Interaction** | What can we do? | Interactable objects, slots, actions and reservations | [README](Interaction/README.md) |
-| **Lua** | How is gameplay scripted? | Lua runtime and C# ↔ Lua bindings | [README](Lua/README.md) |
-| **Libs** | What makes code easier to write? | Small reusable helpers and syntax sugar | [README](Libs/README.md) |
-| **Plugins** | What external code do we use? | DLLs, native libraries and third-party dependencies | [README](Plugins/README.md) |
-| **Examples** | How do we use DCS? | Demonstration and experimental Unity scenes | [README](Examples/README.md) |
-| **Tests** | Does it work? | Unit, integration, build and runtime test benches | [README](Tests/README.md) |
+| **Interaction** | What can we do? | Interactable objects, slots, actions and reservations | [README](DCS/Interaction/README.md) |
+| **Lua** | How is gameplay scripted? | Lua runtime and C# ↔ Lua bindings | [README](DCS/Lua/README.md) |
+| **Libs** | What makes code easier to write? | Small reusable helpers and syntax sugar | [README](DCS/Libs/README.md) |
+| **Plugins** | What external code do we use? | DLLs, native libraries and third-party dependencies | [README](DCS/Plugins/README.md) |
+| **Examples** | How do we use DCS? | Demonstration and experimental Unity scenes | [README](DCS/Examples/README.md) |
+| **Tests** | Does it work? | Unit, integration, build and runtime test benches | [README](DCS/Tests/README.md) |
 
 ---
 
-# Documentation
+## Documentation
 
 DCS uses two documentation levels.
 
@@ -120,7 +124,7 @@ Tests/README.md
 
 ## Detailed Documentation
 
-Long-form technical documentation lives in `Docs/`.
+Long-form technical documentation lives in `DCS/Docs/`.
 
 The existing `dcs-documentation.md` describes the **Core DCS implementation**:
 hosts, handles, component pools, event systems, chains, registries and scheduling.

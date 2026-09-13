@@ -1,0 +1,4 @@
+﻿<Solution>
+  <Project Path="DCS.Framework.csproj" />
+  <Project Path="DCS.Examples.csproj" />
+</Solution>

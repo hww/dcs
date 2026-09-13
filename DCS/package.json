@@ -1,0 +1,10 @@
+{
+  "name": "com.dcs.framework",
+  "version": "1.0.0",
+  "displayName": "DCS Framework",
+  "description": "Local DCS framework.",
+  "unity": "2021.3",
+  "author": {
+    "name": "hww"
+  }
+}
