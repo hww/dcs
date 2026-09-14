@@ -672,3 +672,101 @@ DCS/
 This structure is intentionally organized around **responsibilities and questions**, rather than around individual Unity component types.
 
 That makes the architecture easier to understand as new systems are added.
+
+# Progress & Changes
+
+## What Changed
+
+After studying the Naughty Dog talks, I revised the Spatial system structure and switched to their approach.
+
+```txt
+                         WORLD
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+          Spatial                    Gameplay
+             │                           │
+     Shape / Geometry          Encounter / Region
+     Surface / Query            Trigger / StrongPoint
+             │                           │
+             └─────────────┬─────────────┘
+                           │
+                         Build
+                           │
+                    Runtime Data
+                           │
+                     Systemic Logic
+```
+
+## New Scene Hierarchy
+
+```
+Encounter                          ← top level
+    ├── Trigger                    ← activation
+    ├── StrongPoint                ← combat position
+    │       └── Region             ← position shape
+    │               └── Shape      ← geometry
+    └── StrongPoint
+            └── Region
+                    └── Shape
+```
+
+## Levels in Order
+
+### 1. Encounter — combat scene
+
+Top level of the hierarchy. Contains:
+
+* Combat parameters (Global Combat Params)
+* Activation script
+* A group of triggers and strong points
+
+**ND equivalent:** Encounter — combat container, no shape of its own.
+
+### 2. Trigger — activation
+
+Child of Encounter. Responsible for **starting the fight**:
+
+* When the player enters an area
+* When a condition is met
+
+**ND equivalent:** Encounter activation trigger.
+
+### 3. StrongPoint — combat position
+
+Child of Encounter. **ND equivalent: HardPoint.** Contains:
+
+* Parameters (min/max NPCs, role)
+* A reference to a region (where to hold position)
+
+**Difference from Zone:** Zone belonged to an NPC. StrongPoint **belongs to a place** — the orchestrator assigns NPCs dynamically.
+
+### 4. Region — position shape
+
+Child of StrongPoint. **ND equivalent: Region.** Contains:
+
+* A reference to a Shape (geometry)
+* Region parameters
+
+**Role:** defines **exactly where** on the StrongPoint combat is allowed.
+
+### 5. Shape — geometry
+
+Child of Region. **Pure form.** Variants:
+
+* `ShapeBox`
+* `ShapeSphere`
+* `ShapeCylinder`
+* `ShapeBorder` (contour with height)
+
+**Does not participate in gameplay.** Used only when compiling into SpatialData.
+
+## Key Principles
+
+| Principle | Meaning |
+| --- | --- |
+| **Shape at the bottom** | Shape is a leaf of the hierarchy, geometry only |
+| **Semantics at the top** | Encounter, StrongPoint carry meaning |
+| **Authored markup** | Designer places everything manually, not an algorithm |
+| **Compilation** | Shape → triangulation → SpatialData |
+| **Runtime** | Works with SpatialData, not with Shape |

@@ -27,10 +27,13 @@ namespace DCS.Lua.Bindings
             float y = (float)LuaNative.lua_tonumberx(L, 2, IntPtr.Zero);
             float z = (float)LuaNative.lua_tonumberx(L, 3, IntPtr.Zero);
             float radius = (float)LuaNative.lua_tonumberx(L, 4, IntPtr.Zero);
-            EObjectType filterType = (EObjectType)(byte)LuaNative.lua_tointegerx(L, 5, IntPtr.Zero);
+            ESpatialObjectType spatialType = (ESpatialObjectType)(byte)LuaNative.lua_tointegerx(L, 5, IntPtr.Zero);
 
             Vector3 queryPos = new Vector3(x, y, z);
             List<ushort> results = new List<ushort>();
+
+            var filterType = new SpatialQueryFilter() { 
+                FilterByType = true, ObjectType = spatialType, FilterByOwner = false, OwnerId = 0};
 
             if (SpatialRuntime.Instance != null)
             {

@@ -1,38 +1,42 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DCS.Spatial;
-using DCS.Core; // Подключаем структуры геометрии
 
 namespace DCS.Gameplay
 {
     [CreateAssetMenu(fileName = "NewMapDataset", menuName = "DCS Engine/Map Dataset")]
-    public class MapDataset : ScriptableObject
+    public sealed class MapDataset : ScriptableObject
     {
-        [Header("Map Metadata")]
         public string MapName;
 
-        [Header("Gameplay Records")]
-        public List<ZoneRecord> Zones = new List<ZoneRecord>();
+        public List<EncounterRecord> Encounters = new List<EncounterRecord>();
+        public List<RegionRecord> Regions = new List<RegionRecord>();
+        public List<TriggerRecord> Triggers = new List<TriggerRecord>();
+        public List<StrongPointRecord> StrongPoints = new List<StrongPointRecord>();
         public List<SpawnerRecord> Spawners = new List<SpawnerRecord>();
         public List<LocatorRecord> Locators = new List<LocatorRecord>();
 
-        [Header("Spatial Broadphase")]
         public List<SpatialProxy> SpatialProxies = new List<SpatialProxy>();
-
-        [Header("Spatial Geometry")]
         public List<SphereGeometry> Spheres = new List<SphereGeometry>();
         public List<BoxGeometry> Boxes = new List<BoxGeometry>();
-        public List<TriangleGeometry> Triangles = new List<TriangleGeometry>();
+        public List<CylinderGeometry> Cylinders = new List<CylinderGeometry>();
+        public List<PolygonGeometry> Polygons = new List<PolygonGeometry>();
+        public List<Vector3> PolygonPoints = new List<Vector3>();
 
         public void Clear()
         {
-            Zones.Clear();
+            Encounters.Clear();
+            Regions.Clear();
+            Triggers.Clear();
+            StrongPoints.Clear();
             Spawners.Clear();
             Locators.Clear();
             SpatialProxies.Clear();
             Spheres.Clear();
             Boxes.Clear();
-            Triangles.Clear();
+            Cylinders.Clear();
+            Polygons.Clear();
+            PolygonPoints.Clear();
         }
     }
 }

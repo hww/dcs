@@ -1,5 +1,5 @@
-﻿using DCS.Gameplay;
 using System.Collections.Generic;
+using DCS.Gameplay;
 using UnityEngine;
 
 namespace DCS.Spatial
@@ -11,6 +11,7 @@ namespace DCS.Spatial
         [SerializeField]
         private float _cellSize = 15f;
 
+        private readonly List<ushort> _scratch = new List<ushort>();
         private SpatialIndex _index;
         private RuntimeGeometryStorage _geometry;
 
@@ -23,12 +24,16 @@ namespace DCS.Spatial
             }
 
             Instance = this;
-
             DontDestroyOnLoad(gameObject);
 
             _geometry = new RuntimeGeometryStorage();
-
             _index = new SpatialIndex(_cellSize);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
         }
 
         public void RegisterSpatialData(MapDataset dataset)
@@ -39,48 +44,44 @@ namespace DCS.Spatial
                 return;
             }
 
-            // ИСПРАВЛЕНО: Передаем списки раздельно, как того требует новая сигнатура
-            _geometry.Load(dataset.Spheres, dataset.Boxes, dataset.Triangles);
+            _geometry.Load(
+                dataset.Spheres.ToArray(),
+                dataset.Boxes.ToArray(),
+                dataset.Cylinders.ToArray(),
+                dataset.Polygons.ToArray(),
+                dataset.PolygonPoints.ToArray());
 
-            _index.Load(
-                dataset.SpatialProxies,
-                _geometry);
-
-            Debug.Log(
-                $"[SpatialRuntime] Loaded " +
-                $"{dataset.SpatialProxies.Count} spatial proxies.");
+            _index.Load(dataset.SpatialProxies, _geometry);
         }
-
 
         public void UnregisterSpatialData()
         {
             _index.Clear();
-
             _geometry.Clear();
         }
 
-        public void GetObjectsAtPoint(
-            Vector3 point,
-            EObjectType objectType,
-            List<ushort> results)
+        public void GetObjectsAtPoint(Vector3 point, SpatialQueryFilter filter, List<ushort> results)
         {
-            _index.QueryPoint(
-                point,
-                objectType,
-                results);
+            _index.QueryPoint(point, filter, results);
         }
 
-        public void GetObjectsInRadius(
-            Vector3 center,
-            float radius,
-            EObjectType objectType,
-            List<ushort> results)
+        public void GetObjectsInRadius(Vector3 center, float radius, SpatialQueryFilter filter, List<ushort> results)
         {
-            _index.QueryRadius(
-                center,
-                radius,
-                objectType,
-                results);
+            _index.QueryRadius(center, radius, filter, results);
+        }
+
+        public bool IsOwnerAtPoint(Vector3 point, ESpatialObjectType type, ushort ownerId)
+        {
+            _scratch.Clear();
+            _index.QueryPoint(point, SpatialQueryFilter.ByType(type), _scratch);
+
+            for (int i = 0; i < _scratch.Count; i++)
+            {
+                if (_scratch[i] == ownerId)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

@@ -31,7 +31,6 @@ namespace DCS.Core
         // Имя (идентификатор) скомпилированного датасета карты, к которой привязан этот объект
         public string LevelDatasetName;
 
-        public Zone Zone;
         public Spawner Spawner;
 
         [Header("Entity Actor - Facts")]

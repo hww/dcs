@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace DCS.Spatial
 {
@@ -15,88 +15,86 @@ namespace DCS.Spatial
             switch (handle.Type)
             {
                 case EGeometryType.Sphere:
-                    {
-                        ref readonly SphereGeometry sphere =
-                            ref geometry.GetSphere(handle.Index);
-
-                        return IsPointInside(point, sphere);
-                    }
-
+                    return IsPointInside(point, geometry.GetSphere(handle.Index));
                 case EGeometryType.Box:
-                    {
-                        ref readonly BoxGeometry box =
-                            ref geometry.GetBox(handle.Index);
-
-                        return IsPointInside(point, box);
-                    }
-
-                case EGeometryType.Triangle:
-                    {
-                        ref readonly TriangleGeometry triangle =
-                            ref geometry.GetTriangle(handle.Index);
-
-                        return IsPointInside(point, triangle);
-                    }
-
+                    return IsPointInside(point, geometry.GetBox(handle.Index));
+                case EGeometryType.Cylinder:
+                    return IsPointInside(point, geometry.GetCylinder(handle.Index));
+                case EGeometryType.Polygon:
+                    return IsPointInside(point, handle.Index, geometry);
                 default:
                     return false;
             }
         }
 
-        public static bool IsPointInside(
-            Vector3 point,
-            in SphereGeometry sphere)
+        public static bool IsPointInside(Vector3 point, in SphereGeometry sphere)
         {
+            if (sphere.Radius < 0f)
+                return false;
+
             Vector3 delta = point - sphere.Center;
-
-            return delta.sqrMagnitude <=
-                   sphere.Radius * sphere.Radius;
+            return delta.sqrMagnitude <= sphere.Radius * sphere.Radius;
         }
 
-        public static bool IsPointInside(
-            Vector3 point,
-            in BoxGeometry box)
+        public static bool IsPointInside(Vector3 point, in BoxGeometry box)
         {
-            Quaternion inverseRotation =
-                Quaternion.Inverse(box.Rotation);
+            Quaternion inverse = Quaternion.Inverse(box.Rotation);
+            Vector3 local = inverse * (point - box.Center);
 
-            Vector3 localPoint =
-                inverseRotation * (point - box.Center);
-
-            return Mathf.Abs(localPoint.x) <= box.Extents.x &&
-                   Mathf.Abs(localPoint.y) <= box.Extents.y &&
-                   Mathf.Abs(localPoint.z) <= box.Extents.z;
+            return Mathf.Abs(local.x) <= box.Extents.x &&
+                   Mathf.Abs(local.y) <= box.Extents.y &&
+                   Mathf.Abs(local.z) <= box.Extents.z;
         }
 
-        public static bool IsPointInside(
-            Vector3 point,
-            in TriangleGeometry triangle)
+        public static bool IsPointInside(Vector3 point, in CylinderGeometry cylinder)
         {
-            // Polygon zones are currently evaluated in XZ.
+            Quaternion inverse = Quaternion.Inverse(cylinder.Rotation);
+            Vector3 local = inverse * (point - cylinder.Center);
+
+            if (Mathf.Abs(local.y) > cylinder.HalfHeight)
+                return false;
+
+            return local.x * local.x + local.z * local.z <=
+                   cylinder.Radius * cylinder.Radius;
+        }
+
+        private static bool IsPointInside(
+            Vector3 point,
+            int polygonIndex,
+            RuntimeGeometryStorage geometry)
+        {
+            PolygonGeometry polygon = geometry.GetPolygon(polygonIndex);
+
+            if (!polygon.Closed || polygon.PointCount < 3)
+                return false;
+
+            if (point.y < polygon.MinY || point.y > polygon.MaxY)
+                return false;
+
             Vector2 p = new Vector2(point.x, point.z);
+            bool inside = false;
 
-            Vector2 a = new Vector2(triangle.A.x, triangle.A.z);
-            Vector2 b = new Vector2(triangle.B.x, triangle.B.z);
-            Vector2 c = new Vector2(triangle.C.x, triangle.C.z);
+            int end = polygon.StartIndex + polygon.PointCount;
+            int j = end - 1;
 
-            float d1 = Sign(p, a, b);
-            float d2 = Sign(p, b, c);
-            float d3 = Sign(p, c, a);
+            for (int i = polygon.StartIndex; i < end; i++)
+            {
+                Vector3 vi = geometry.GetPolygonPoint(i);
+                Vector3 vj = geometry.GetPolygonPoint(j);
 
-            bool hasNegative = d1 < 0f || d2 < 0f || d3 < 0f;
-            bool hasPositive = d1 > 0f || d2 > 0f || d3 > 0f;
+                bool intersects =
+                    ((vi.z > point.z) != (vj.z > point.z)) &&
+                    (point.x <
+                     (vj.x - vi.x) * (point.z - vi.z) /
+                     (vj.z - vi.z) + vi.x);
 
-            return !(hasNegative && hasPositive);
-        }
+                if (intersects)
+                    inside = !inside;
 
-        private static float Sign(
-            Vector2 p1,
-            Vector2 p2,
-            Vector2 p3)
-        {
-            return
-                (p1.x - p3.x) * (p2.y - p3.y) -
-                (p2.x - p3.x) * (p1.y - p3.y);
+                j = i;
+            }
+
+            return inside;
         }
     }
 }
