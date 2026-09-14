@@ -76,7 +76,6 @@ The secondary level manifests list
 | Module | Question | Responsibility | Documentation |
 | --- | --- | --- | --- |
 | **Core** | How does everything work? | Dynamic components, hosts, handles, facts, events and scheduling | [README](DCS/Core/README.md) · [Reference](DCS/Docs/DCS_Core_Reference.md) |
-| **World** | What is everything made of? | Authoring, datasets, build, runtime world and streaming | [README](DCS/World/README.md) |
 | **Spatial** | Where is everything? | Geometry, surfaces, spatial index and spatial queries | [README](DCS/Spatial/README.md) |
 | **Gameplay** | What is happening? | Gameplay rules, state, zones and runtime reactions | [README](DCS/Gameplay/README.md) |
 | **Navigation** | Where can we go? | Navigation surfaces, paths, costs and traversal | [README](Navigation/README.md) |
