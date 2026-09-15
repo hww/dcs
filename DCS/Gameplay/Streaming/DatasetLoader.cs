@@ -93,9 +93,13 @@ namespace DCS.Core
                 yield break;
             }
 
-            if (SpatialRuntime.Instance != null)
+            if (GameplayRuntime.Instance != null)
             {
-                SpatialRuntime.Instance.RegisterSpatialData(_currentDataset);
+                GameplayRuntime.Instance.Load(_currentDataset);
+            }
+            else
+            {
+                Debug.LogError("[DatasetLoader] GameplayRuntime instance is missing.");
             }
 
             RegisterEntitiesInComponentPools(_currentDataset);
@@ -113,9 +117,9 @@ namespace DCS.Core
         {
             if (_currentDataset == null) return;
 
-            if (SpatialRuntime.Instance != null)
+            if (GameplayRuntime.Instance != null)
             {
-                SpatialRuntime.Instance.UnregisterSpatialData();
+                GameplayRuntime.Instance.Clear();
             }
 
             UnregisterEntitiesFromPools(_currentDataset);

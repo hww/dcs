@@ -6,7 +6,6 @@ namespace DCS.Interaction.Authoring
 {
     public abstract class BaseTrigger : MonoBehaviour
     {
-        public enum TriggerMode : byte { Enter = 0, Exit = 1, Stay = 2 }
         [SerializeField] private string _key;
         [SerializeField] private bool _enabled = true;
         [SerializeField] private TriggerMode _mode = TriggerMode.Enter;

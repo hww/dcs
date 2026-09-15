@@ -1,18 +1,22 @@
 using System.Collections.Generic;
-using UnityEngine;
 using DCS.Spatial;
+using UnityEngine;
 
 namespace DCS.Gameplay
 {
-    [CreateAssetMenu(fileName = "NewMapDataset", menuName = "DCS Engine/Map Dataset")]
+    [CreateAssetMenu(fileName = "NewMapDataset", menuName = "DCS/World/Map Dataset")]
     public sealed class MapDataset : ScriptableObject
     {
         public string MapName;
-
         public List<EncounterRecord> Encounters = new List<EncounterRecord>();
+        public List<StrongPointRecord> StrongPoints = new List<StrongPointRecord>();
         public List<RegionRecord> Regions = new List<RegionRecord>();
         public List<TriggerRecord> Triggers = new List<TriggerRecord>();
-        public List<StrongPointRecord> StrongPoints = new List<StrongPointRecord>();
+        public List<NavigationSurfaceRecord> NavigationSurfaces = new List<NavigationSurfaceRecord>();
+        public List<TraversalLinkRecord> TraversalLinks = new List<TraversalLinkRecord>();
+        public List<PatrolPathRecord> PatrolPaths = new List<PatrolPathRecord>();
+        public List<Vector3> PatrolPoints = new List<Vector3>();
+        public List<PostRecord> Posts = new List<PostRecord>();
         public List<SpawnerRecord> Spawners = new List<SpawnerRecord>();
         public List<LocatorRecord> Locators = new List<LocatorRecord>();
 
@@ -25,18 +29,9 @@ namespace DCS.Gameplay
 
         public void Clear()
         {
-            Encounters.Clear();
-            Regions.Clear();
-            Triggers.Clear();
-            StrongPoints.Clear();
-            Spawners.Clear();
-            Locators.Clear();
-            SpatialProxies.Clear();
-            Spheres.Clear();
-            Boxes.Clear();
-            Cylinders.Clear();
-            Polygons.Clear();
-            PolygonPoints.Clear();
+            Encounters.Clear(); StrongPoints.Clear(); Regions.Clear(); Triggers.Clear();
+            NavigationSurfaces.Clear(); TraversalLinks.Clear(); PatrolPaths.Clear(); PatrolPoints.Clear(); Posts.Clear();
+            Spawners.Clear(); Locators.Clear(); SpatialProxies.Clear(); Spheres.Clear(); Boxes.Clear(); Cylinders.Clear(); Polygons.Clear(); PolygonPoints.Clear();
         }
     }
 }

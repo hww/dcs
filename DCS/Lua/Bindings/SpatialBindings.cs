@@ -37,7 +37,7 @@ namespace DCS.Lua.Bindings
 
             if (SpatialRuntime.Instance != null)
             {
-                SpatialRuntime.Instance.GetObjectsInRadius(queryPos, radius, filterType, results);
+                SpatialRuntime.Instance.QueryRadius(queryPos, radius, filterType, results);
             }
 
             LuaNative.lua_newtable(L);
