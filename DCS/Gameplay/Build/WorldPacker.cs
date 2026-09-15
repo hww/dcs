@@ -17,7 +17,9 @@ namespace DCS.Gameplay.Build
             const string folder="Assets/Resources/Maps"; EnsureFolder(folder); string path=$"{folder}/{scene.name}_dataset.asset";
             MapDataset d=AssetDatabase.LoadAssetAtPath<MapDataset>(path); if(d==null){d=ScriptableObject.CreateInstance<MapDataset>();AssetDatabase.CreateAsset(d,path);}
             d.Clear(); d.MapName=scene.name; HashSet<ushort> used=new HashSet<ushort>();
-            foreach(GameObject root in scene.GetRootGameObjects()){BakeEncounters(root,d,used); BakeActors(root,d);}
+            foreach(GameObject root in scene.GetRootGameObjects()){
+                BakeEncounters(root,d,used); 
+                BakeActors(root,d);}
             EditorUtility.SetDirty(d); AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
             Debug.Log($"[WorldPacker] Baked {scene.name}: encounters={d.Encounters.Count}, regions={d.Regions.Count}, triggers={d.Triggers.Count}, strongPoints={d.StrongPoints.Count}, proxies={d.SpatialProxies.Count}");
         }
