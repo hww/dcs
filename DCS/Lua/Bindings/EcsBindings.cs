@@ -18,6 +18,17 @@ namespace DCS.Lua.Bindings
             RegisterGlobalFunction(L, Lua_GetField, "DCS_GetField");
             RegisterGlobalFunction(L, Lua_SetField, "DCS_SetField");
             RegisterGlobalFunction(L, Lua_TryGetField, "DCS_TryGetField");
+            RegisterGlobalFunction(L, Lua_CreateHost, "DCS_CreateHost");
+        }
+
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_CreateHost(IntPtr L)
+        {
+            Host host = HostManager.CreateHost();
+            // Return packed 32-bit integer representation of Host (Id + Generation)
+            LuaNative.lua_pushinteger(L, host.Pack());
+            return 1;
         }
 
         private static void RegisterGlobalFunction(IntPtr L, Func<IntPtr, int> fn, string name)
@@ -143,14 +154,18 @@ namespace DCS.Lua.Bindings
 
             if (pool != null && pool.TryGetDenseIndex(handle, out int denseIndex))
             {
+                int topBefore = LuaNative.lua_gettop(L);
                 bool success = pool.GetField(denseIndex, fieldName, L);
                 if (!success)
                 {
-                    return LuaNative.luaL_error(L, $"[DCS Error] Field '{fieldName}' does not exist on component type {typeId} for Handle {packedHandle}");
+                    return LuaNative.luaL_error(L, $"[DCS Error] Field '{fieldName}' does not exist.");
                 }
 
-                return fieldName.Equals("position", StringComparison.OrdinalIgnoreCase) ||
-                       fieldName.Equals("rotation", StringComparison.OrdinalIgnoreCase) ? 3 : 1;
+                // Dynamically calculate how many items the Expression JIT pushed onto the stack
+                int topAfter = LuaNative.lua_gettop(L);
+                int pushedCount = topAfter - topBefore;
+
+                return pushedCount;
             }
 
             LuaNative.lua_pushnil(L);

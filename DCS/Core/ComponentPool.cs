@@ -4,6 +4,7 @@ using UnityEngine;
 using DCS.Core;
 using System;
 using DCS.Lua;
+using static DCS.Core.FieldExpressionFactory;
 
 namespace DCS.Core
 {
@@ -103,6 +104,21 @@ namespace DCS.Core
 
         /// <summary>Bit mask for group filtering.</summary>
         private uint _mask;
+
+
+        // Thread-safe high-performance compiled delegates for safe unboxed marshalling
+        private static RefFieldGetter<T> _compiledGetField;
+        private static RefFieldSetter<T> _compiledSetField;
+
+        // ============================================================
+        //  STATIC CONSTRUCTOR
+        // ============================================================
+
+        static ComponentPool()
+        {
+            // Automatically build fast delegate pipelines on type initialization
+            BuildAccessors();
+        }
 
         // ============================================================
         //  CONSTRUCTOR
@@ -429,8 +445,10 @@ namespace DCS.Core
         /// </summary>
         public virtual bool GetField(int denseIndex, string fieldName, IntPtr L)
         {
-            LuaNative.lua_pushnil(L);
-            return false;
+            if (_compiledGetField == null) return false;
+            // Pass structure strictly by reference, ensuring zero boxing
+            return _compiledGetField(ref Components[denseIndex], fieldName, L);
+
         }
 
         /// <summary>
@@ -440,8 +458,22 @@ namespace DCS.Core
         /// </summary>
         public virtual bool SetField(int denseIndex, string fieldName, IntPtr L)
         {
-            // Nothing by default
-            return false;
+            if (_compiledSetField == null) return false;
+            return _compiledSetField(ref Components[denseIndex], fieldName, L);
+        }
+
+        private static void BuildAccessors()
+        {
+            // Fallback to type-safe runtime JIT compilation via Expression Trees
+            try
+            {
+                _compiledGetField = FieldExpressionFactory.CreateGetter<T>();
+                _compiledSetField = FieldExpressionFactory.CreateSetter<T>();
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[DCS Registry Error] Failed to generate fast field accessors for type {typeof(T).Name}: {ex.Message}");
+            }
         }
 
         /// <summary>
