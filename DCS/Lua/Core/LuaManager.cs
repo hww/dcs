@@ -18,9 +18,9 @@ namespace DCS.Lua
         private string LuaRootPath => Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
         // Ограниченный внутренний доступ для маршалинга внутри папки Bindings
-        internal static HostChain _globalHostChain;
-        internal static EventSubscription _eventSubscriptionPool;
-        internal static TypeChain _globalTypeChain;
+        public static HostChain _globalHostChain;
+        public static EventSubscription _eventSubscriptionPool;
+        public static TypeChain _globalTypeChain;
 
         /// <summary>
         /// Binds the active game loop structural layout manager to the bridge context.

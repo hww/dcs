@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using DCS.Core;
 
-namespace DCS.Core.Tests
+namespace DCS.Tests.PlayMode
 {
     [TestFixture]
     public class DynamicFactsTests

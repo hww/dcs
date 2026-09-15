@@ -50,8 +50,9 @@ namespace DCS.Lua
         //  TABLES
         // ============================================================
 
+
         [DllImport(LUA_DLL, EntryPoint = "lua_createtable")]
-        private static extern void lua_createtable(IntPtr L, int narr, int nrec);
+        public static extern void lua_createtable(IntPtr L, int narr, int nrec);
 
         public static void lua_newtable(IntPtr L) => lua_createtable(L, 0, 0);
 

@@ -1,9 +1,9 @@
+// Naughty Dog style high-performance runtime JIT compiler for universal structural layout marshalling.
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using DCS.Lua;
-using UnityEngine;
 
 namespace DCS.Core
 {
@@ -26,76 +26,20 @@ namespace DCS.Core
             foreach (var field in fields)
             {
                 Expression fieldAccess = Expression.Field(instanceParam, field);
+                var expressions = new List<Expression>();
 
-                // --- 1. PRIMITIVE TYPES ---
-                if (field.FieldType == typeof(float) || field.FieldType == typeof(double))
+                // Process field layout via fully recursive meta-data evaluation paths
+                if (AppendGetterExpressions(field.FieldType, fieldAccess, luaParam, expressions))
                 {
-                    var pushMethod = typeof(LuaNative).GetMethod("lua_pushnumber", new[] { typeof(IntPtr), typeof(double) });
-                    var block = Expression.Block(
-                        Expression.Call(pushMethod, luaParam, Expression.Convert(fieldAccess, typeof(double))),
-                        Expression.Constant(true)
-                    );
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
-                }
-                else if (field.FieldType == typeof(int) || field.FieldType == typeof(long) || field.FieldType == typeof(uint) || field.FieldType == typeof(ushort))
-                {
-                    var pushMethod = typeof(LuaNative).GetMethod("lua_pushinteger", new[] { typeof(IntPtr), typeof(long) });
-                    var block = Expression.Block(
-                        Expression.Call(pushMethod, luaParam, Expression.Convert(fieldAccess, typeof(long))),
-                        Expression.Constant(true)
-                    );
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
-                }
-                else if (field.FieldType == typeof(bool))
-                {
-                    var pushMethod = typeof(LuaNative).GetMethod("lua_pushboolean", new[] { typeof(IntPtr), typeof(bool) });
-                    var block = Expression.Block(
-                        Expression.Call(pushMethod, luaParam, fieldAccess),
-                        Expression.Constant(true)
-                    );
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
-                }
-                else if (field.FieldType == typeof(string))
-                {
-                    var pushMethod = typeof(LuaNative).GetMethod("lua_pushstring", new[] { typeof(IntPtr), typeof(string) });
-                    var block = Expression.Block(
-                        Expression.Call(pushMethod, luaParam, fieldAccess),
-                        Expression.Constant(true)
-                    );
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
-                }
-                // --- 2. COMPLEX MATHEMATICAL TYPES (Vector3) ---
-                else if (field.FieldType == typeof(Vector3))
-                {
-                    var pushNumberMethod = typeof(LuaNative).GetMethod("lua_pushnumber", new[] { typeof(IntPtr), typeof(double) });
-
-                    var block = Expression.Block(
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "x"), typeof(double))),
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "y"), typeof(double))),
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "z"), typeof(double))),
-                        Expression.Constant(true)
-                    );
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
-                }
-                // --- 3. COMPLEX MATHEMATICAL TYPES (Color) ---
-                else if (field.FieldType == typeof(Color))
-                {
-                    var pushNumberMethod = typeof(LuaNative).GetMethod("lua_pushnumber", new[] { typeof(IntPtr), typeof(double) });
-
-                    var block = Expression.Block(
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "r"), typeof(double))),
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "g"), typeof(double))),
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "b"), typeof(double))),
-                        Expression.Call(pushNumberMethod, luaParam, Expression.Convert(Expression.Field(fieldAccess, "a"), typeof(double))),
-                        Expression.Constant(true)
-                    );
+                    expressions.Add(Expression.Constant(true));
+                    var block = Expression.Block(expressions);
                     switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
                 }
             }
 
             if (switchCases.Count == 0)
             {
-                return (ref T inst, string name, IntPtr L) => { LuaNative.lua_pushnil(L); return false; };
+                return delegate (ref T inst, string name, IntPtr L) { LuaNative.lua_pushnil(L); return false; };
             }
 
             var defaultResult = Expression.Block(
@@ -114,7 +58,6 @@ namespace DCS.Core
             return lambda.Compile();
         }
 
-        // FIXED SIGNATURE HERE: Added <T> to RefFieldSetter template parameters
         public static RefFieldSetter<T> CreateSetter<T>() where T : struct
         {
             var type = typeof(T);
@@ -127,52 +70,158 @@ namespace DCS.Core
 
             foreach (var field in fields)
             {
-                Expression assignment = null;
                 Expression fieldAccess = Expression.Field(instanceParam, field);
+                var expressions = new List<Expression>();
+                int stackOffset = -1; // Pulling items sequentially in reverse order from stack top
 
-                if (field.FieldType == typeof(float) || field.FieldType == typeof(double))
+                if (AppendSetterExpressions(field.FieldType, fieldAccess, luaParam, expressions, ref stackOffset))
                 {
-                    var toNumberMethod = typeof(LuaNative).GetMethod("lua_tonumberx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
-                    var luaValue = Expression.Call(toNumberMethod, luaParam, Expression.Constant(-1), Expression.Constant(IntPtr.Zero));
-                    assignment = Expression.Assign(fieldAccess, Expression.Convert(luaValue, field.FieldType));
+                    expressions.Add(Expression.Constant(true));
+                    var block = Expression.Block(expressions);
+                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
                 }
-                else if (field.FieldType == typeof(int) || field.FieldType == typeof(long) || field.FieldType == typeof(uint) || field.FieldType == typeof(ushort))
-                {
-                    var toIntegerMethod = typeof(LuaNative).GetMethod("lua_tointegerx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
-                    var luaValue = Expression.Call(toIntegerMethod, luaParam, Expression.Constant(-1), Expression.Constant(IntPtr.Zero));
-                    assignment = Expression.Assign(fieldAccess, Expression.Convert(luaValue, field.FieldType));
-                }
-                else if (field.FieldType == typeof(bool))
-                {
-                    var toBoolMethod = typeof(LuaNative).GetMethod("lua_toboolean", new[] { typeof(IntPtr), typeof(int) });
-                    var luaValue = Expression.NotEqual(Expression.Call(toBoolMethod, luaParam, Expression.Constant(-1)), Expression.Constant(0));
-                    assignment = Expression.Assign(fieldAccess, luaValue);
-                }
-                else if (field.FieldType == typeof(string))
-                {
-                    var tolStringMethod = typeof(LuaNative).GetMethod("lua_tolstring", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
-                    var luaValuePtr = Expression.Call(tolStringMethod, luaParam, Expression.Constant(-1), Expression.Constant(IntPtr.Zero));
-                    var marshalMethod = typeof(System.Runtime.InteropServices.Marshal).GetMethod("PtrToStringUTF8", new[] { typeof(IntPtr) });
-                    var stringValue = Expression.Call(marshalMethod, luaValuePtr);
-                    assignment = Expression.Assign(fieldAccess, stringValue);
-                }
-                // --- SETTER FOR VECTOR3 (Expects 3 numbers sequentially rotated/pulled from top of the stack) ---
-                else if (field.FieldType == typeof(Vector3))
-                {
-                    var toNumberMethod = typeof(LuaNative).GetMethod("lua_tonumberx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
-
-                    var zVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-1), Expression.Constant(IntPtr.Zero)), typeof(float)); var yVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-2), Expression.Constant(IntPtr.Zero)), typeof(float)); var xVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-3), Expression.Constant(IntPtr.Zero)), typeof(float)); var newVector = Expression.New(typeof(Vector3).GetConstructor(new[] { typeof(float), typeof(float), typeof(float) }), xVal, yVal, zVal); assignment = Expression.Assign(fieldAccess, newVector);
-                }
-                else if (field.FieldType == typeof(Color)) { var toNumberMethod = typeof(LuaNative).GetMethod("lua_tonumberx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) }); var aVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-1), Expression.Constant(IntPtr.Zero)), typeof(float)); var bVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-2), Expression.Constant(IntPtr.Zero)), typeof(float)); var gVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-3), Expression.Constant(IntPtr.Zero)), typeof(float)); var rVal = Expression.Convert(Expression.Call(toNumberMethod, luaParam, Expression.Constant(-4), Expression.Constant(IntPtr.Zero)), typeof(float)); var newColor = Expression.New(typeof(Color).GetConstructor(new[] { typeof(float), typeof(float), typeof(float), typeof(float) }), rVal, gVal, bVal, aVal); assignment = Expression.Assign(fieldAccess, newColor); }
-            }
-            if (switchCases.Count == 0) { 
-                return (ref T inst, string name, IntPtr L) => false; 
             }
 
-            var switchExpr = Expression.Switch(Expression.Call(nameParam, typeof(string).GetMethod("ToLower", Type.EmptyTypes)), Expression.Constant(false), null, switchCases.ToArray());
+            if (switchCases.Count == 0)
+            {
+                return delegate (ref T inst, string name, IntPtr L) { return false; };
+            }
+
+            var switchExpr = Expression.Switch(
+                Expression.Call(nameParam, typeof(string).GetMethod("ToLower", Type.EmptyTypes)),
+                Expression.Constant(false),
+                null,
+                switchCases.ToArray()
+            );
 
             var lambda = Expression.Lambda<RefFieldSetter<T>>(switchExpr, instanceParam, nameParam, luaParam);
             return lambda.Compile();
+        }
+
+        // --- PRIVATE CORE EVALUATORS ---
+
+        private static bool AppendGetterExpressions(Type targetType, Expression accessExpr, ParameterExpression luaParam, List<Expression> exprs)
+        {
+            // Handle standard Game Enums automatically by casting underlying values straight to integers
+            if (targetType.IsEnum)
+            {
+                var pushMethod = typeof(LuaNative).GetMethod("lua_pushinteger", new[] { typeof(IntPtr), typeof(long) });
+                exprs.Add(Expression.Call(pushMethod, luaParam, Expression.Convert(accessExpr, typeof(long))));
+                return true;
+            }
+
+            if (targetType == typeof(float) || targetType == typeof(double))
+            {
+                var pushMethod = typeof(LuaNative).GetMethod("lua_pushnumber", new[] { typeof(IntPtr), typeof(double) });
+                exprs.Add(Expression.Call(pushMethod, luaParam, Expression.Convert(accessExpr, typeof(double))));
+                return true;
+            }
+
+            if (targetType == typeof(int) || targetType == typeof(long) || targetType == typeof(uint) || targetType == typeof(ushort) || targetType == typeof(byte))
+            {
+                var pushMethod = typeof(LuaNative).GetMethod("lua_pushinteger", new[] { typeof(IntPtr), typeof(long) });
+                exprs.Add(Expression.Call(pushMethod, luaParam, Expression.Convert(accessExpr, typeof(long))));
+                return true;
+            }
+
+            if (targetType == typeof(bool))
+            {
+                var pushMethod = typeof(LuaNative).GetMethod("lua_pushboolean", new[] { typeof(IntPtr), typeof(bool) });
+                exprs.Add(Expression.Call(pushMethod, luaParam, accessExpr));
+                return true;
+            }
+
+            if (targetType == typeof(string))
+            {
+                var pushMethod = typeof(LuaNative).GetMethod("lua_pushstring", new[] { typeof(IntPtr), typeof(string) });
+                exprs.Add(Expression.Call(pushMethod, luaParam, accessExpr));
+                return true;
+            }
+
+            // RECURSIVE LAYOUT PARSING: Auto-unboxing nested structural sub-objects (Vector3, Color, custom structs)
+            if (targetType.IsValueType && !targetType.IsPrimitive)
+            {
+                var subFields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance);
+                if (subFields.Length == 0) return false;
+
+                bool subValid = false;
+                foreach (var subField in subFields)
+                {
+                    Expression subFieldAccess = Expression.Field(accessExpr, subField);
+                    if (AppendGetterExpressions(subField.FieldType, subFieldAccess, luaParam, exprs))
+                    {
+                        subValid = true;
+                    }
+                }
+                return subValid;
+            }
+
+            return false;
+        }
+
+        private static bool AppendSetterExpressions(Type targetType, Expression accessExpr, ParameterExpression luaParam, List<Expression> exprs, ref int stackOffset)
+        {
+            if (targetType.IsEnum)
+            {
+                var toIntegerMethod = typeof(LuaNative).GetMethod("lua_tointegerx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
+                var luaValue = Expression.Call(toIntegerMethod, luaParam, Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
+                exprs.Add(Expression.Assign(accessExpr, Expression.Convert(luaValue, targetType)));
+                return true;
+            }
+
+            if (targetType == typeof(float) || targetType == typeof(double))
+            {
+                var toNumberMethod = typeof(LuaNative).GetMethod("lua_tonumberx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
+                var luaValue = Expression.Call(toNumberMethod, luaParam, Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
+                exprs.Add(Expression.Assign(accessExpr, Expression.Convert(luaValue, targetType)));
+                return true;
+            }
+
+            if (targetType == typeof(int) || targetType == typeof(long) || targetType == typeof(uint) || targetType == typeof(ushort) || targetType == typeof(byte))
+            {
+                var toIntegerMethod = typeof(LuaNative).GetMethod("lua_tointegerx", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
+                var luaValue = Expression.Call(toIntegerMethod, luaParam, Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
+                exprs.Add(Expression.Assign(accessExpr, Expression.Convert(luaValue, targetType)));
+                return true;
+            }
+
+            if (targetType == typeof(bool))
+            {
+                var toBoolMethod = typeof(LuaNative).GetMethod("lua_toboolean", new[] { typeof(IntPtr), typeof(int) });
+                var luaValue = Expression.NotEqual(Expression.Call(toBoolMethod, luaParam, Expression.Constant(stackOffset--)), Expression.Constant(0));
+                exprs.Add(Expression.Assign(accessExpr, luaValue));
+                return true;
+            }
+
+            if (targetType == typeof(string))
+            {
+                var tolStringMethod = typeof(LuaNative).GetMethod("lua_tolstring", new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
+                var luaValuePtr = Expression.Call(tolStringMethod, luaParam, Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
+                var marshalMethod = typeof(System.Runtime.InteropServices.Marshal).GetMethod("PtrToStringUTF8", new[] { typeof(IntPtr) });
+                var stringValue = Expression.Call(marshalMethod, luaValuePtr); exprs.Add(Expression.Assign(accessExpr, stringValue)); return true;
+            }// RECURSIVE STRUCT LAYOUT SETTER: Reconstruct subsets from stack offsets top-to-bottom sequentially
+            if (targetType.IsValueType && !targetType.IsPrimitive)
+            {
+                var subFields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance); if (subFields.Length == 0) return false;
+                // Value types require processing fields in complete reverse structural order to mirror sequential stack logic
+                var reverseFields = new List<FieldInfo>(subFields);
+                reverseFields.Reverse();
+                var subAssigns = new List<Expression>();
+                bool subValid = false; foreach (var subField in reverseFields)
+                {
+                    //Expression 
+                    var subFieldAccess = Expression.Field(accessExpr, subField);
+                    if (AppendSetterExpressions(subField.FieldType, subFieldAccess, luaParam, subAssigns, ref stackOffset)) { subValid = true; }
+                }
+                if (subValid)
+                {
+                    // Reverse the assignment expressions block to maintain original storage execution directions safely 
+                    subAssigns.Reverse();
+                    exprs.AddRange(subAssigns);
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
