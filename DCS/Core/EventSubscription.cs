@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
+using DCS.Lua;
 
 namespace DCS.Core
 {
@@ -35,6 +36,26 @@ namespace DCS.Core
 
         /// <summary>Index in the Roster (required by IDcsComponent).</summary>
         public int RosterIndex { get; set; }
+
+        public void ReceiveMessage(int msgTypeId, Handle msgHandle)
+        {
+            var pool = ComponentRegistry.GetPool<SubscriptionNode>();
+
+            if (RosterIndex < 0 || RosterIndex >= pool.Roster.Length)
+                return;
+
+            RosterItem roster = pool.Roster[RosterIndex];
+
+            if (roster.Index < 0)
+                return;
+
+            Host receiverHost = roster.Host;
+
+            LuaManager.DeliverEventToLua(
+                receiverHost.Id,
+                msgTypeId,
+                msgHandle.Pack());
+        }
     }
 
     // ============================================================
@@ -116,19 +137,28 @@ namespace DCS.Core
         /// <summary>
         /// Allows the native Lua bridge to allocate static event subscriptions by integer IDs directly via the pool instance.
         /// </summary>
-        public Handle SystemSubscribe(Host receiverHost, int eventTypeId, HostChain hostChain, TypeChain typeChain)
+        public Handle SystemSubscribe(
+            Host receiverHost,
+            int eventTypeId,
+            HostChain hostChain,
+            TypeChain typeChain)
         {
-            // Allocates a raw SubscriptionNode and links it into the TypeChain registry
             Handle subHandle = base.Allocate(receiverHost, hostChain);
+
             int denseIndex = Partition - 1;
+
             ref SubscriptionNode node = ref Components[denseIndex];
 
             node.TargetEventTypeId = eventTypeId;
-            node.ProcessHandle = subHandle; // Links back to itself as a stable handler
-            node.ProcessTypeId = ComponentType<SubscriptionNode>.Id; // Subscription type pointer
-            node.NamespaceMask = uint.MaxValue; // Default to allow all masks for script routing
+            node.ProcessHandle = subHandle;
+            node.ProcessTypeId = ComponentType<SubscriptionNode>.Id;
+            node.NamespaceMask = uint.MaxValue;
 
-            typeChain.Add(eventTypeId, subHandle, node.ProcessTypeId);
+            typeChain.Add(
+                eventTypeId,
+                subHandle,
+                node.ProcessTypeId);
+
             return subHandle;
         }
 

@@ -234,7 +234,7 @@ namespace DCS.Core
     /// <summary>
     /// The object can be associated with a Host
     /// </summary>
-    public interface IHostRefference
+    public interface IHostReference
     {
         Host Host { get; }
         void LinkToHost(Host host);

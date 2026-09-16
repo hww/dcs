@@ -7,7 +7,7 @@ namespace DCS.Core
     /// <summary>
     /// Биндинги для DynamicFacts в Lua.
     /// </summary>
-    public static class DynamicFactsLuaBinding
+    public static class DynamicFactsBinding
     {
         public static void Register(IntPtr L)
         {
@@ -99,5 +99,7 @@ namespace DCS.Core
             facts.SetFact(fieldName, L);
             return 0;
         }
+
+
     }
 }

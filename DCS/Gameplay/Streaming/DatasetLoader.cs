@@ -110,7 +110,6 @@ namespace DCS.Core
             Debug.Log($"<color=green>[Dataseter Stream]</color> Стриминг локации '{mapName}' завершен.");
 
             onComplete?.Invoke();
-            MapBindings.NotifyZoneEvent(0, "OnMapStreamingFinished");
         }
 
         public static void UnloadMapDataset()

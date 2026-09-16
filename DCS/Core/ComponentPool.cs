@@ -1,10 +1,5 @@
 using System.Runtime.CompilerServices;
-using System.Reflection;
-using UnityEngine;
-using DCS.Core;
 using System;
-using DCS.Lua;
-using static DCS.Core.FieldExpressionFactory;
 
 namespace DCS.Core
 {
@@ -385,7 +380,7 @@ namespace DCS.Core
         /// <remarks>
         /// Called by EventSystem during message delivery.
         /// Validates the receiver's generation before dispatching.
-        /// If the receiver implements IDcsMessageReceiver, delivers the message.
+        /// If the receiver implements IMessageReceiver, delivers the message.
         ///
         /// Complexity: O(1)
         /// </remarks>

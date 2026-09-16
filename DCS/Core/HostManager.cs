@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace DCS.Core
 {
@@ -42,6 +43,11 @@ namespace DCS.Core
         /// Linked list is organized via the Host.Next field.
         /// </remarks>
         private static int _firstFree = 0;
+
+        /// <summary>
+        /// Reference to the managed object for example GameObject
+        /// </summary>
+        private static readonly GCHandle[] _actorHandles = new GCHandle[MaxGameObjects];
 
         /// <summary>Static constructor — initializes the host array.</summary>
         /// <remarks>
@@ -122,6 +128,8 @@ namespace DCS.Core
         {
             if (!IsValid(host)) return;
 
+            UnlinkHostReference(host); // or destroy the actor
+
             ref HostData hostRef = ref GlobalHosts[host.Id];
 
             hostRef.Generation++; // Protects against stale handles
@@ -145,11 +153,80 @@ namespace DCS.Core
         {
             if (!IsValid(host)) return;
 
+            UnlinkHostReference(host);  // or destroy the actor
+
             // 1. Free all components
             DCSystem.FreeChain(host, chainManager);
 
             // 2. Free the host itself
             Invalidate(host);
+        }
+
+        public static BaseActor GetActor(Handle handle)
+        {
+            int id = handle.Id;
+            if (id >= MaxGameObjects || GlobalHosts[id].Generation != handle.Generation) return null;
+
+            ref GCHandle gch = ref _actorHandles[id];
+            if (gch.IsAllocated)
+            {
+                BaseActor actor = gch.Target as BaseActor;
+
+                // Безопасность (Пункт 2): Если Unity удалила объект, C# вернет null,
+                // но программа не упадет и память не деградирует!
+                if (actor != null && actor.gameObject != null)
+                    return actor;
+            }
+            return null;
+        }
+        /// <summary>
+        /// Connect the GameObject to the HostId
+        /// </summary>
+        public static void LinkHostReference(Host host, IHostReference actor)
+        {
+            int id = host.Id;
+            if (GlobalHosts[id].Generation != host.Generation) return;
+
+            if (_actorHandles[id].IsAllocated) _actorHandles[id].Free();
+
+            actor.LinkToHost(host);
+            // Создаем Слабую Ссылку (Weak Reference). Она позволяет Unity спокойно удалять 
+            // GameObject, не ломая сборщик мусора и предотвращая утечки памяти.
+            _actorHandles[id] = GCHandle.Alloc(actor, GCHandleType.Weak);
+        }
+
+        /// <summary>
+        /// Explicitly unlinks the MonoBehaviour from the host slot without destroying the DCS host data.
+        /// Useful during asynchronous stream-unloads or scene structural destructions.
+        /// </summary>
+        public static void UnlinkHostReference(Host host)
+        {
+            int id = host.Id;
+            if (id >= MaxGameObjects) return;
+
+            ref GCHandle gch = ref _actorHandles[id];
+            if (gch.IsAllocated)
+            {
+                BaseActor actor = gch.Target as BaseActor;
+                if (actor != null)
+                {
+                    actor.UnlinkFromHost();
+                    _actorHandles[id].Free();
+                }
+            }
+        }
+        public static IHostReference GetHostReference(Handle handle)
+        {
+            int id = handle.Id;
+            if (id >= MaxGameObjects || GlobalHosts[id].Generation != handle.Generation) return null;
+
+            ref GCHandle gch = ref _actorHandles[id];
+            if (gch.IsAllocated)
+            {
+                // Safely extract the interface hidden away from the garbage collector sweeps
+                return gch.Target as IHostReference;
+            }
+            return null;
         }
     }
 }

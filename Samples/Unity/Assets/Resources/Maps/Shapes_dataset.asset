@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 267e1a2c4d6055b48871df57e26fdbb6, type: 3}
+  m_Name: Shapes_dataset
+  m_EditorClassIdentifier: DCS.Framework::DCS.Gameplay.MapDataset
+  MapName: Shapes
+  Encounters:
+  - Id: 25114
+    Key: 
+    ScriptPath: 
+    AutoStart: 0
+    FactsJson: 
+  Regions:
+  - Id: 48852
+    EncounterId: 25114
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 0
+    FactsJson: 
+  - Id: 49096
+    EncounterId: 25114
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 0
+    FactsJson: 
+  - Id: 4594
+    EncounterId: 25114
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 0
+    FactsJson: 
+  - Id: 450
+    EncounterId: 25114
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 0
+    FactsJson: 
+  Triggers:
+  - Id: 43946
+    EncounterId: 25114
+    Key: 
+    Enabled: 1
+    Mode: 0
+    OneShot: 0
+    Cooldown: 0
+    ShapeCount: 0
+  - Id: 40086
+    EncounterId: 25114
+    Key: 
+    Enabled: 1
+    Mode: 0
+    OneShot: 0
+    Cooldown: 0
+    ShapeCount: 0
+  - Id: 36030
+    EncounterId: 25114
+    Key: 
+    Enabled: 1
+    Mode: 0
+    OneShot: 0
+    Cooldown: 0
+    ShapeCount: 0
+  - Id: 16302
+    EncounterId: 25114
+    Key: 
+    Enabled: 1
+    Mode: 0
+    OneShot: 0
+    Cooldown: 0
+    ShapeCount: 0
+  StrongPoints: []
+  Spawners: []
+  Locators: []
+  SpatialProxies: []
+  Spheres: []
+  Boxes: []
+  Cylinders: []
+  Polygons: []
+  PolygonPoints: []

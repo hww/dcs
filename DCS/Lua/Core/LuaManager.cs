@@ -64,10 +64,7 @@ namespace DCS.Lua
                 IntPtr L = _globalLuaState.L;
 
                 // --- КОНВЕЙЕР РЕГИСТРАЦИИ БИНДИНГОВ ---
-                EcsBindings.Register(L);
-                EventBindings.Register(L);
-                SpatialBindings.Register(L);
-                MapBindings.Register(L);
+                LuaBindings.RegisterAll(L);
 
                 // Загрузка базовой экосистемы скриптов
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";

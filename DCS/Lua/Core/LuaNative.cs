@@ -84,9 +84,9 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "lua_remove")]
         public static extern void lua_remove(IntPtr L, int idx);
 
-        [DllImport(LUA_DLL, EntryPoint = "lua_pop")]
-        public static extern void lua_pop(IntPtr L, int n);
-
+        //[DllImport(LUA_DLL, EntryPoint = "lua_pop")]
+        //public static extern void lua_pop(IntPtr L, int n);
+        
         // ============================================================
         //  PUSH VALUES
         // ============================================================

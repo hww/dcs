@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace DCS.Core
 {
-    public abstract class BaseActor : MonoBehaviour, IFieldAccess, IFactAccess, IHostRefference, ILifeCycle, IInspectable
+    public abstract class BaseActor : MonoBehaviour, IFieldAccess, IFactAccess, IHostReference, ILifeCycle, IInspectable
     {
         [Header("DCS Linking")]
         [Tooltip("ID хоста в вашем дата-ориентированном ядре.")]
@@ -17,7 +17,7 @@ namespace DCS.Core
         // ================================================
 
         /// <summary>
-        /// Get host
+        /// Get.Set host
         /// </summary>
         public Host Host => _host;
 

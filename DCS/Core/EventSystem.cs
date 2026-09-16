@@ -24,7 +24,7 @@ namespace DCS.Core
     public struct InvokeRecord
     {
         /// <summary>Host that owns the subscription (receiver).</summary>
-        public Host ReceiverHost;
+        public Host SenderHost;
 
         /// <summary>Handle to the process (FSM) that will receive the event.</summary>
         public Handle ReceiverProcessHandle;
@@ -129,7 +129,7 @@ namespace DCS.Core
 
                         _invokeList[_invokeCount] = new InvokeRecord
                         {
-                            ReceiverHost = eventPool.Roster[j].Host,
+                            SenderHost = eventPool.Roster[j].Host,
                             ReceiverProcessHandle = sub.ProcessHandle,
                             ReceiverProcessTypeId = sub.ProcessTypeId,
                             EventTypeId = eventTypeId,
@@ -159,7 +159,7 @@ namespace DCS.Core
         /// 3. Clears the invocation list (sets count to 0)
         ///
         /// No allocations, no boxing, no virtual calls.
-        /// The receiver implements IDcsMessageReceiver and handles the message.
+        /// The receiver implements IMessageReceiver and handles the message.
         ///
         /// Complexity: O(I) where I = number of invocations
         /// </remarks>
