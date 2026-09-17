@@ -33,7 +33,7 @@ namespace DCS.Core
                 {
                     expressions.Add(Expression.Constant(true));
                     var block = Expression.Block(expressions);
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
+                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name)));
                 }
             }
 
@@ -48,8 +48,8 @@ namespace DCS.Core
             );
 
             var switchExpr = Expression.Switch(
-                Expression.Call(nameParam, typeof(string).GetMethod("ToLower", Type.EmptyTypes)),
-                defaultResult,
+                nameParam,
+                Expression.Constant(false),
                 null,
                 switchCases.ToArray()
             );
@@ -78,7 +78,7 @@ namespace DCS.Core
                 {
                     expressions.Add(Expression.Constant(true));
                     var block = Expression.Block(expressions);
-                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name.ToLower())));
+                    switchCases.Add(Expression.SwitchCase(block, Expression.Constant(field.Name)));
                 }
             }
 
@@ -88,7 +88,7 @@ namespace DCS.Core
             }
 
             var switchExpr = Expression.Switch(
-                Expression.Call(nameParam, typeof(string).GetMethod("ToLower", Type.EmptyTypes)),
+                nameParam,
                 Expression.Constant(false),
                 null,
                 switchCases.ToArray()

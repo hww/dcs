@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using UnityEngine;
+using System;
 
 namespace DCS.Core
 {
@@ -67,6 +68,7 @@ namespace DCS.Core
         /// <summary>Number of registered event types.</summary>
         public static int PollTypesCount = 0;
 
+
         /// <summary>
         /// Initializes all pools by scanning assemblies for DcsPoolAttribute.
         /// </summary>
@@ -82,30 +84,41 @@ namespace DCS.Core
         /// </remarks>
         public static void InitializeAllPools()
         {
-            var types = Assembly.GetExecutingAssembly().GetTypes();
-
-            foreach (var type in types)
+            var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
             {
-                var poolAttribute = type.GetCustomAttribute<BasePoolAttribute>();
-
-                if (type.IsValueType && poolAttribute != null)
+                Type[] types;
+                try
                 {
-                    // Force static constructor execution to register the type
+                    types = assembly.GetTypes();
+                }
+                catch (System.Reflection.ReflectionTypeLoadException e)
+                {
+                    types = e.Types;   // частично загруженные
+                }
+
+                foreach (var type in types)
+                {
+                    if (type == null) continue;
+                    if (!type.IsValueType) continue;
+                    if (type.IsAbstract) continue;
+
+                    var poolAttribute = type.GetCustomAttribute<BasePoolAttribute>(inherit: false);
+                    if (poolAttribute == null) continue;
+
+                    // Регистрируем
                     var genericComponentType = typeof(ComponentType<>).MakeGenericType(type);
                     RuntimeHelpers.RunClassConstructor(genericComponentType.TypeHandle);
 
-                    // If it's an event type, add it to the polling list
                     if (typeof(IEvent).IsAssignableFrom(type))
                     {
                         var idField = genericComponentType.GetField(
                             "Id",
-                            BindingFlags.Public | BindingFlags.Static
-                        );
+                            BindingFlags.Public | BindingFlags.Static);
                         PollTypeIds[PollTypesCount++] = (int)idField.GetValue(null);
                     }
                 }
             }
-
             Debug.Log($"<color=green>[DCS SUCCESS]</color> Pools allocated. Total types: {_typeCounter}");
         }
 
@@ -150,6 +163,8 @@ namespace DCS.Core
             {
                 Pools[newId] = new ComponentPool<T>(capacity);
             }
+
+            Pools[newId].SetPoolId(newId);
 
             return newId;
         }

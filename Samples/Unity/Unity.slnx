@@ -1,5 +1,10 @@
 ﻿<Solution>
   <Project Path="DCS.Framework.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="DCS.Tests.PlayMode.csproj" />
   <Project Path="DCS.Examples.csproj" />
+  <Project Path="Unity.StarterAssets.Editor.csproj" />
+  <Project Path="Unity.StarterAssets.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="URPWizard.csproj" />
 </Solution>

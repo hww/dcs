@@ -48,7 +48,7 @@ namespace DCS.Core
         /// <summary>
         /// Pack Host into a single 32-bit integer for efficient passing to Lua.
         /// </summary>
-        public int Pack()
+        public int ToLua()
         {
             return (Id & HandleConfig.ID_MASK) | ((Generation & HandleConfig.GEN_MASK) << HandleConfig.GEN_SHIFT);
         }
@@ -56,7 +56,7 @@ namespace DCS.Core
         /// <summary>
         /// Unpack a 32-bit integer back into a Host struct.
         /// </summary>
-        public static Host Unpack(int packed)
+        public static Host FromLua(int packed)
         {
             return new Host
             {

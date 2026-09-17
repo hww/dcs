@@ -35,7 +35,7 @@ namespace DCS.Lua.Bindings
                 return 1;
             }
 
-            LuaNative.lua_pushinteger(L, reference.Host.Pack());
+            LuaNative.lua_pushinteger(L, reference.Host.ToLua());
             return 1;
         }
 

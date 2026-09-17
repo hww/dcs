@@ -15,6 +15,7 @@ namespace DCS.Lua.Bindings
             SpatialBindings.Register(L);
             WorldBindings.Register(L);
             MapBindings.Register(L);
+            AIBindings.Register(L);
         }
     }
 }

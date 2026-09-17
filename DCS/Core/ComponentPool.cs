@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System;
+using UnityEngine;
 
 namespace DCS.Core
 {
@@ -24,7 +25,7 @@ namespace DCS.Core
     public struct RosterItem
     {
         /// <summary>Index into the dense component array (DenseIndex).</summary>
-        public int Index;
+        public ushort Index;
 
         /// <summary>Generation for handle validation. Incremented on each free.</summary>
         public int Generation;
@@ -67,7 +68,7 @@ namespace DCS.Core
         // ============================================================
 
         /// <summary>Number of active components (boundary between used and free dense slots).</summary>
-        public int Partition = 0;
+        public System.UInt16 Partition = 0;
 
         /// <summary>Dense array of all component data (active and free slots).</summary>
         public T[] Components;
@@ -89,7 +90,7 @@ namespace DCS.Core
         private readonly System.Type _componentType;
 
         /// <summary>Type ID of the component pool.</summary>
-        private readonly int _poolId;
+        private int _poolId;
 
         /// <summary>Update stages for this component type.</summary>
         private EUpdateStage _updateStages;
@@ -133,7 +134,6 @@ namespace DCS.Core
             uint mask = 0)
         {
             _componentType = typeof(T);
-            _poolId = ComponentType<T>.Id;
             _updateStages = updateStages;
             _asyncUpdateStages = asyncUpdateStages;
             _mask = mask;
@@ -146,7 +146,7 @@ namespace DCS.Core
                 Roster[i].Next = i + 1;
             Roster[capacity - 1].Next = -1;
         }
-
+  
         // ============================================================
         //  HANDLE RESOLUTION
         // ============================================================
@@ -174,6 +174,7 @@ namespace DCS.Core
                 int denseIndex = Roster[rosterIndex].Index;
                 return ref Components[denseIndex];
             }
+
 
             throw new System.InvalidCastException(
                 $"DCS ValidCast Error: Handle is stale for pool {_componentType.Name}"
@@ -227,7 +228,7 @@ namespace DCS.Core
             int denseIndex = Partition++;
 
             // Setup roster slot
-            Roster[rosterIndex].Index = denseIndex;
+            Roster[rosterIndex].Index = (System.UInt16)denseIndex;
             Roster[rosterIndex].Generation++;
             Roster[rosterIndex].Host = hostHandle;
             int currentGen = Roster[rosterIndex].Generation;
@@ -307,7 +308,7 @@ namespace DCS.Core
                 if (Components[denseIndexToDelete] is IComponent movingComp)
                 {
                     int movingRosterIndex = movingComp.RosterIndex;
-                    Roster[movingRosterIndex].Index = denseIndexToDelete;
+                    Roster[movingRosterIndex].Index = (System.UInt16)denseIndexToDelete;
                 }
             }
 
@@ -494,5 +495,9 @@ namespace DCS.Core
             return true;
         }
 
+        public void SetPoolId(int newId)
+        {
+            _poolId = newId;
+        }
     }
 }

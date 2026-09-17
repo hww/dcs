@@ -39,7 +39,7 @@ namespace DCS.Core
         public int Next;
 
         /// <summary>Checks whether the node is empty.</summary>
-        public bool IsNull => Component.IsNull;
+        public bool IsNull => TypeId < 0 || Component.IsNull;
     }
 
     // ============================================================
@@ -76,6 +76,13 @@ namespace DCS.Core
         /// The linked list is organized via the ChainNode.Next field.
         /// </remarks>
         private int _firstFree;
+
+        private static readonly ChainNode NullNode = new ChainNode
+        {
+            Component = Handle.Null,   // Id = 65535
+            TypeId = -1,
+            Next = -1
+        };
 
         /// <summary>Initializes the node array and free node list.</summary>
         /// <remarks>
@@ -184,18 +191,14 @@ namespace DCS.Core
         public bool Contains(Host host, Handle component, int typeId)
         {
             if (!HostManager.IsValid(host)) return false;
-
             int currentIndex = HostManager.GlobalHosts[host.Id].FirstComponent;
-
             while (currentIndex >= 0)
             {
                 ref ChainNode node = ref _components[currentIndex];
                 if (node.Component.Id == component.Id && node.TypeId == typeId)
                     return true;
-
                 currentIndex = node.Next;
             }
-
             return false;
         }
 
@@ -218,7 +221,7 @@ namespace DCS.Core
                 currentIndex = node.Next;
             }
 
-            return default;
+            return NullNode;
         }
 
         /// <summary>Frees all components of a host.</summary>

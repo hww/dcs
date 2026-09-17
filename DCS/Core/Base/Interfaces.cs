@@ -177,6 +177,12 @@ namespace DCS.Core
         /// Validates the Handle's Generation against the Roster slot.
         /// </summary>
         bool TryGetHost(Handle handle, out Host host);
+
+        /// <summary>
+        /// Assign pool id
+        /// </summary>
+        /// <param name="newId"></param>
+        void SetPoolId(int newId);
     }
 
     public interface IFieldAccessForIndex

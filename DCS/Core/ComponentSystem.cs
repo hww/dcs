@@ -42,6 +42,8 @@ namespace DCS.Core
         public static Handle Get<T>(Host hostHandle, HostChain chain) where T : struct
         {
             ChainNode typed = chain.GetTypedHandle(hostHandle, ComponentType<T>.Id);
+            if (typed.Component.Id == 0 && typed.Component.Generation == 0)
+                return Handle.Null;
             return typed.Component;
         }
 

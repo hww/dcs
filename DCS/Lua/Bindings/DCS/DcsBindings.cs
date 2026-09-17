@@ -7,6 +7,9 @@ namespace DCS.Lua.Bindings
     /// <summary>
     /// Low-level DCS/ECS Lua API.
     /// Existing global names are intentionally preserved.
+    ///
+    /// Convention: Lua always passes Host values as Pack() (Id | Generation &lt;&lt; 16).
+    /// Handles are also passed as Pack(). C# unpacks before touching GlobalHosts.
     /// </summary>
     public static class DcsBindings
     {
@@ -30,14 +33,20 @@ namespace DCS.Lua.Bindings
             LuaNative.lua_setglobal(L, name);
         }
 
+        // ------------------------------------------------------------
+        //  DCS_CreateHost() -> packedHost
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_CreateHost(IntPtr L)
         {
             Host host = HostManager.CreateHost();
-            LuaNative.lua_pushinteger(L, host.Pack());
+            LuaNative.lua_pushinteger(L, host.ToLua());
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_Internal_GetTypesCount() -> int
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetTypesCount(IntPtr L)
         {
@@ -45,6 +54,9 @@ namespace DCS.Lua.Bindings
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_Internal_GetTypeNameById(id) -> string | nil
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetTypeNameById(IntPtr L)
         {
@@ -56,7 +68,7 @@ namespace DCS.Lua.Bindings
             }
 
             string name = ComponentRegistry.GetTypeNameById(id);
-            if (name == null)
+            if (string.IsNullOrEmpty(name))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
@@ -66,22 +78,23 @@ namespace DCS.Lua.Bindings
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_CreateComponent(typeId, packedHost) -> packedHandle | nil
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_CreateComponent(IntPtr L)
         {
             int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes ||
-                hostId < 0 || hostId >= HostManager.GlobalHosts.Length ||
                 LuaManager._globalHostChain == null)
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
-            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
+            Host host = Host.FromLua(packedHost);
             if (!HostManager.IsValid(host))
             {
                 LuaNative.lua_pushnil(L);
@@ -106,6 +119,11 @@ namespace DCS.Lua.Bindings
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_RemoveComponent(typeId, packedHandle) -> void
+        //  Handle already encodes the roster slot, so host lookup
+        //  goes through the pool, not through GlobalHosts.
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RemoveComponent(IntPtr L)
         {
@@ -128,22 +146,23 @@ namespace DCS.Lua.Bindings
             return 0;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_HasComponent(typeId, packedHost) -> bool
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_HasComponent(IntPtr L)
         {
             int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes ||
-                hostId < 0 || hostId >= HostManager.GlobalHosts.Length ||
                 LuaManager._globalHostChain == null)
             {
                 LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
 
-            ref HostData hostData = ref HostManager.GlobalHosts[hostId];
-            Host host = new Host { Id = (ushort)hostId, Generation = hostData.Generation };
+            Host host = Host.FromLua(packedHost);
             if (!HostManager.IsValid(host))
             {
                 LuaNative.lua_pushboolean(L, 0);
@@ -155,6 +174,9 @@ namespace DCS.Lua.Bindings
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_GetField(typeId, packedHandle, fieldName) -> values...
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetField(IntPtr L)
         {
@@ -188,6 +210,9 @@ namespace DCS.Lua.Bindings
             return count > 0 ? count : 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_TryGetField(typeId, packedHandle, fieldName) -> ok, values...
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_TryGetField(IntPtr L)
         {
@@ -227,6 +252,10 @@ namespace DCS.Lua.Bindings
             return valueCount + 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_SetField(typeId, packedHandle, fieldName, values...) -> void
+        //  Values are popped from the top of the stack by FieldExpressionFactory.
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetField(IntPtr L)
         {

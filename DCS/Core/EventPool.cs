@@ -65,12 +65,12 @@ namespace DCS.Core
             if (Partition >= Components.Length)
                 throw new System.Exception("DCS Error: Event pool capacity exceeded!");
 
-            int denseIndex = Partition;
-            int rosterIndex = denseIndex; // Events use dense indexing
+            System.UInt16 denseIndex = Partition;
+            System.UInt16 rosterIndex = denseIndex; // Events use dense indexing
             Partition++;
 
             // Setup roster slot
-            Roster[rosterIndex].Index = denseIndex;
+            Roster[rosterIndex].Index = (System.UInt16)denseIndex;
             Roster[rosterIndex].Generation++;
             Roster[rosterIndex].Host = hostHandle;
 

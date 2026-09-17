@@ -1,9 +1,8 @@
-using DCS.Core;
-using DCS.Lua.Bindings;
 using System;
 using System.IO;
 using UnityEngine;
-
+using DCS.Core;
+using DCS.Lua.Bindings;
 
 namespace DCS.Lua
 {
@@ -15,24 +14,18 @@ namespace DCS.Lua
         private LuaStateWrapper _globalLuaState;
         public IntPtr MainState => _globalLuaState != null ? _globalLuaState.L : IntPtr.Zero;
 
-        private string LuaRootPath => Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
+        private string LuaRootPath =>
+            Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
-        // Ограниченный внутренний доступ для маршалинга внутри папки Bindings
         public static HostChain _globalHostChain;
         public static EventSubscription _eventSubscriptionPool;
         public static TypeChain _globalTypeChain;
 
-        /// <summary>
-        /// Binds the active game loop structural layout manager to the bridge context.
-        /// </summary>
         public static void BindHostChain(HostChain hostChain)
         {
             _globalHostChain = hostChain;
         }
 
-        /// <summary>
-        /// Binds the active DCS event subscription management pipelines to the script scope.
-        /// </summary>
         public static void BindEventSystems(EventSubscription subPool, TypeChain typeChain)
         {
             _eventSubscriptionPool = subPool;
@@ -48,6 +41,7 @@ namespace DCS.Lua
             }
             _instance = this;
             DontDestroyOnLoad(gameObject);
+            ComponentRegistry.InitializeAllPools();
         }
 
         private void Start()
@@ -63,10 +57,8 @@ namespace DCS.Lua
                 _globalLuaState = new LuaStateWrapper("GlobalEngine");
                 IntPtr L = _globalLuaState.L;
 
-                // --- КОНВЕЙЕР РЕГИСТРАЦИИ БИНДИНГОВ ---
                 LuaBindings.RegisterAll(L);
 
-                // Загрузка базовой экосистемы скриптов
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";
                 if (File.Exists(bootstrapPath))
                 {
@@ -84,16 +76,40 @@ namespace DCS.Lua
             }
         }
 
-        /// <summary>
-        /// Delivers a DCS event to the global Lua event router.
-        /// </summary>
+        // ------------------------------------------------------------
+        //  NEW: per-frame Lua tick. Calls DCS_Global_FrameUpdate()
+        //  which iterates LuaEntitiesRegistry and calls entity:Update().
+        // ------------------------------------------------------------
+        void Update()
+        {
+            if (_globalLuaState == null) return;
+
+            IntPtr L = _globalLuaState.L;
+
+            LuaNative.lua_getglobal(L, "DCS_Global_FrameUpdate");
+            if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
+            {
+                if (LuaNative.lua_pcallk(L, 0, 0, 0, 0, IntPtr.Zero) != 0)
+                {
+                    string error = _globalLuaState.GetStringFromStack(-1);
+                    Debug.LogError($"[Lua] FrameUpdate error: {error}");
+                    LuaNative.lua_settop(L, -2);
+                }
+            }
+            else
+            {
+                // Not a function (or nil) — pop it to keep the stack clean.
+                LuaNative.lua_settop(L, -2);
+            }
+        }
+
         public static void DeliverEventToLua(int hostId, int eventTypeId, int packedHandle)
         {
             if (_instance == null || _instance._globalLuaState == null) return;
 
             IntPtr L = _instance._globalLuaState.L;
-            LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
 
+            LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
             if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
             {
                 LuaNative.lua_pushinteger(L, hostId);
@@ -104,7 +120,12 @@ namespace DCS.Lua
                 {
                     string error = _instance._globalLuaState.GetStringFromStack(-1);
                     Debug.LogError($"[Lua] Event router error: {error}");
+                    LuaNative.lua_settop(L, -2);
                 }
+            }
+            else
+            {
+                LuaNative.lua_settop(L, -2);
             }
         }
 

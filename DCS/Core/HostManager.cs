@@ -49,6 +49,17 @@ namespace DCS.Core
         /// </summary>
         private static readonly GCHandle[] _actorHandles = new GCHandle[MaxGameObjects];
 
+        /// <summary>
+        /// The host used when there are no anything else. 
+        /// </summary>
+        public static readonly Host EventHub;
+
+        /// <summary>Static constructor — initializes the host array.</summary>
+        /// <remarks>
+        /// All hosts are created with Generation = 1 (0 means null).
+        /// FirstComponent = -1 (no components).
+        /// Next = i + 1 (linked list of free IDs).
+        /// </remarks>
         /// <summary>Static constructor — initializes the host array.</summary>
         /// <remarks>
         /// All hosts are created with Generation = 1 (0 means null).
@@ -57,6 +68,8 @@ namespace DCS.Core
         /// </remarks>
         static HostManager()
         {
+            EventHub = new Host { Id = 0, Generation = 1 };
+
             for (ushort i = 0; i < MaxGameObjects; i++)
             {
                 GlobalHosts[i] = new HostData
@@ -68,7 +81,7 @@ namespace DCS.Core
                 };
             }
             GlobalHosts[MaxGameObjects - 1].Next = -1;
-            _firstFree = 0;
+            _firstFree = 1; // Skip EventHub host with id 0
         }
 
         /// <summary>Creates a new host.</summary>
@@ -110,6 +123,7 @@ namespace DCS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsValid(Host host)
         {
+            if (host.Id >= MaxGameObjects) return false;
             return GlobalHosts[host.Id].Generation == host.Generation;
         }
 
@@ -126,6 +140,7 @@ namespace DCS.Core
         /// </remarks>
         public static void Invalidate(Host host)
         {
+            if (host.Id == 0) return; // Protect EventHub
             if (!IsValid(host)) return;
 
             UnlinkHostReference(host); // or destroy the actor
@@ -151,6 +166,7 @@ namespace DCS.Core
         /// </remarks>
         public static void DestroyHost(Host host, HostChain chainManager)
         {
+            if (host.Id == 0) return; // Protect EventHub
             if (!IsValid(host)) return;
 
             UnlinkHostReference(host);  // or destroy the actor
