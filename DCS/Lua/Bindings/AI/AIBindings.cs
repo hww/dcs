@@ -17,18 +17,12 @@ namespace DCS.Lua.Bindings
         public static void Register(IntPtr L)
         {
             LuaNative.lua_newtable(L);
-            RegisterMethod(L, "SetCombatRole", Lua_SetCombatRole);
-            RegisterMethod(L, "GetCombatRole", Lua_GetCombatRole);
+            LuaBindings.RegisterMethod(L, Lua_SetCombatRole, "SetCombatRole");
+            LuaBindings.RegisterMethod(L, Lua_GetCombatRole, "GetCombatRole");
             LuaNative.lua_setglobal(L, "AI");
         }
 
-        private static void RegisterMethod(IntPtr L, string name, Func<IntPtr, int> fn)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushstring(L, name);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_settable(L, -3);
-        }
+
 
         // ------------------------------------------------------------
         //  AI.SetCombatRole(hostId, role, strongPointId) -> handle

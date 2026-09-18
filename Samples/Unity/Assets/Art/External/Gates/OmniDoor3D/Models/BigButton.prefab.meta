@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5c2d1ba173cab584887f98bd79cc57df
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/BigButton.prefab
+  uploadId: 756516

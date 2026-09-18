@@ -12,18 +12,10 @@ namespace DCS.Lua.Bindings
         public static void Register(IntPtr L)
         {
             LuaNative.lua_newtable(L);
-            RegisterMethod(L, "Stream", Lua_StreamMap);
-            RegisterMethod(L, "Unload", Lua_UnloadMap);
-            RegisterMethod(L, "GetStatus", Lua_GetMapStatus);
+            LuaBindings.RegisterMethod(L, Lua_StreamMap, "Stream");
+            LuaBindings.RegisterMethod(L, Lua_UnloadMap, "Unload");
+            LuaBindings.RegisterMethod(L, Lua_GetMapStatus, "GetStatus");
             LuaNative.lua_setglobal(L, "Map");
-        }
-
-        private static void RegisterMethod(IntPtr L, string name, Func<IntPtr, int> fn)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushstring(L, name);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_settable(L, -3);
         }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cc23189c2d8f43a4999b81f5ca47dfed
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Round Frame.mat
+  uploadId: 756516

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 80e0da2de83dc20408a0b928726fa804
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Light Grey.mat
+  uploadId: 756516

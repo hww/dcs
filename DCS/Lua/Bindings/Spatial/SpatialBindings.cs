@@ -14,20 +14,13 @@ namespace DCS.Lua.Bindings
         public static void Register(IntPtr L)
         {
             LuaNative.lua_newtable(L);
-            RegisterMethod(L, "QueryRadius", Lua_QueryRadius);
-            RegisterMethod(L, "QueryPoint", Lua_QueryPoint);
-            RegisterMethod(L, "Contains", Lua_Contains);
-            RegisterMethod(L, "Raycast", Lua_Raycast);      // <-- NEW
+            LuaBindings.RegisterMethod(L, Lua_QueryRadius, "QueryRadius");
+            LuaBindings.RegisterMethod(L, Lua_QueryPoint, "QueryPoint");
+            LuaBindings.RegisterMethod(L, Lua_Contains, "Contains");
+            LuaBindings.RegisterMethod(L, Lua_Raycast, "Raycast");      // <-- NEW
             LuaNative.lua_setglobal(L, "Spatial");
         }
 
-        private static void RegisterMethod(IntPtr L, string name, Func<IntPtr, int> fn)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushstring(L, name);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_settable(L, -3);
-        }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryPoint(IntPtr L)

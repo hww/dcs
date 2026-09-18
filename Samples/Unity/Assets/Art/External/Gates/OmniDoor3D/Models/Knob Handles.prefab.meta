@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: adc6c57099deee14aa1f75837bffa93c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Knob Handles.prefab
+  uploadId: 756516

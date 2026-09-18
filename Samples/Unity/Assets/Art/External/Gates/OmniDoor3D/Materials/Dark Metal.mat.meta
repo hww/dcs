@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: db89926930db13f4db43da88e830323f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Dark Metal.mat
+  uploadId: 756516

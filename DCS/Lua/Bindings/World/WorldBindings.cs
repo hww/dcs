@@ -9,20 +9,12 @@ namespace DCS.Lua.Bindings
         public static void Register(IntPtr L)
         {
             LuaNative.lua_newtable(L);
-            RegisterMethod(L, "FindActor", ActorBindings.Lua_FindActor);
-            RegisterMethod(L, "GetField", ActorBindings.Lua_GetField);
-            RegisterMethod(L, "SetField", ActorBindings.Lua_SetField);
-            RegisterMethod(L, "GetFact", ActorBindings.Lua_GetFact);
-            RegisterMethod(L, "SetFact", ActorBindings.Lua_SetFact);
+            LuaBindings.RegisterMethod(L, ActorBindings.Lua_FindActor, "FindActor");
+            LuaBindings.RegisterMethod(L, ActorBindings.Lua_GetField, "GetField");
+            LuaBindings.RegisterMethod(L, ActorBindings.Lua_SetField, "SetField");
+            LuaBindings.RegisterMethod(L, ActorBindings.Lua_GetFact, "GetFact");
+            LuaBindings.RegisterMethod(L, ActorBindings.Lua_SetFact, "SetFact");
             LuaNative.lua_setglobal(L, "World");
-        }
-
-        private static void RegisterMethod(IntPtr L, string name, Func<IntPtr, int> fn)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushstring(L, name);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_settable(L, -3);
         }
     }
 }

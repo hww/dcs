@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 874fbe4f740091d4faff2f76f71cec57
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Hatch.asset
+  uploadId: 756516

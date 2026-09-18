@@ -12,16 +12,18 @@ namespace DCS.Lua.Bindings
     {
         public static void Register(IntPtr L)
         {
-            RegisterGlobalFunction(L, Lua_EmitEvent, "DCS_EmitEvent");
-            RegisterGlobalFunction(L, Lua_RegisterSubscription, "DCS_RegisterSubscription");
-            RegisterGlobalFunction(L, Lua_DeliverEvent, "DCS_DeliverEvent");
-        }
+            LuaNative.lua_getglobal(L, "DCS");
+            if (LuaNative.lua_type(L, -1) != LuaNative.LUA_TTABLE)
+            {
+                LuaNative.lua_settop(L, -2);
+                return;
+            }
 
-        private static void RegisterGlobalFunction(IntPtr L, Func<IntPtr, int> fn, string name)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_setglobal(L, name);
+            LuaBindings.RegisterMethod(L, Lua_EmitEvent, "EmitEvent");
+            LuaBindings.RegisterMethod(L, Lua_RegisterSubscription, "RegisterSubscription");
+            LuaBindings.RegisterMethod(L, Lua_DeliverEvent, "DeliverEvent");
+
+            LuaNative.lua_settop(L, -2);
         }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]

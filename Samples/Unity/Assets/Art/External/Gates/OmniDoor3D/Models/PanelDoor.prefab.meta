@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 54c2e61abe020ac40a27504bf8a66643
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/PanelDoor.prefab
+  uploadId: 756516

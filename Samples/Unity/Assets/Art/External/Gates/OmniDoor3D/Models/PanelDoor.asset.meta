@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2a253339685fc39428afc4056bdd1dd8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/PanelDoor.asset
+  uploadId: 756516

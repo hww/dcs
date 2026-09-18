@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eaea03b89e4cc47468719ffd0d78e8f4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Plaster 3.mat
+  uploadId: 756516

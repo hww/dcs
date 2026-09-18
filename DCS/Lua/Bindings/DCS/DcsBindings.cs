@@ -1,6 +1,7 @@
 using DCS.Core;
 using System;
 using System.Runtime.InteropServices;
+using UnityEngine;
 
 namespace DCS.Lua.Bindings
 {
@@ -15,22 +16,21 @@ namespace DCS.Lua.Bindings
     {
         public static void Register(IntPtr L)
         {
-            RegisterGlobalFunction(L, Lua_GetTypesCount, "DCS_Internal_GetTypesCount");
-            RegisterGlobalFunction(L, Lua_GetTypeNameById, "DCS_Internal_GetTypeNameById");
-            RegisterGlobalFunction(L, Lua_CreateComponent, "DCS_CreateComponent");
-            RegisterGlobalFunction(L, Lua_RemoveComponent, "DCS_RemoveComponent");
-            RegisterGlobalFunction(L, Lua_HasComponent, "DCS_HasComponent");
-            RegisterGlobalFunction(L, Lua_GetField, "DCS_GetField");
-            RegisterGlobalFunction(L, Lua_SetField, "DCS_SetField");
-            RegisterGlobalFunction(L, Lua_TryGetField, "DCS_TryGetField");
-            RegisterGlobalFunction(L, Lua_CreateHost, "DCS_CreateHost");
-        }
+            // Внутренние — глобально (нужны до создания таблицы)
+            LuaBindings.RegisterGlobalFunction(L, Lua_GetTypesCount, "Internal_GetTypesCount");
+            LuaBindings.RegisterGlobalFunction(L, Lua_GetTypeNameById, "Internal_GetTypeNameById");
 
-        private static void RegisterGlobalFunction(IntPtr L, Func<IntPtr, int> fn, string name)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_setglobal(L, name);
+            // Остальное — в таблице DCS
+            LuaNative.lua_newtable(L);
+            LuaBindings.RegisterMethod(L, Lua_CreateComponent, "CreateComponent");
+            LuaBindings.RegisterMethod(L, Lua_RemoveComponent, "RemoveComponent");
+            LuaBindings.RegisterMethod(L, Lua_HasComponent, "HasComponent");
+            LuaBindings.RegisterMethod(L, Lua_GetField, "GetField");
+            LuaBindings.RegisterMethod(L, Lua_SetField, "SetField");
+            LuaBindings.RegisterMethod(L, Lua_TryGetField, "TryGetField");
+            LuaBindings.RegisterMethod(L, Lua_CreateHost, "CreateHost");
+            LuaBindings.RegisterMethod(L, Lua_AttachPrefab, "AttachPrefab");  // <-- DCS-операция
+            LuaNative.lua_setglobal(L, "DCS");
         }
 
         // ------------------------------------------------------------
@@ -286,6 +286,27 @@ namespace DCS.Lua.Bindings
         {
             IntPtr ptr = LuaNative.lua_tolstring(L, index, IntPtr.Zero);
             return ptr != IntPtr.Zero ? Marshal.PtrToStringUTF8(ptr) : null;
+        }
+
+        // ------------------------------------------------------------
+        // Add prefab to the Host ID
+        // ------------------------------------------------------------
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_AttachPrefab(IntPtr L)
+        {
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            string prefabPath = ReadString(L, 2);
+
+            Host host = Host.FromLua(packedHost);
+            if (!HostManager.IsValid(host) || string.IsNullOrEmpty(prefabPath))
+            {
+                LuaNative.lua_pushboolean(L, 0);
+                return 1;
+            }
+
+            bool ok = ViewService.AttachPrefab(host, prefabPath);
+            LuaNative.lua_pushboolean(L, ok ? 1 : 0);
+            return 1;
         }
     }
 }

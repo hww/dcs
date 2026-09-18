@@ -21,6 +21,12 @@ namespace DCS.Lua
         public static EventSubscription _eventSubscriptionPool;
         public static TypeChain _globalTypeChain;
 
+        /// <summary>
+        /// Делегат регистрации биндингов. Игра назначает свой.
+        /// Если не назначен — используется базовый LuaBindings.RegisterAll.
+        /// </summary>
+        public static System.Action<IntPtr> RegisterBindingsCallback;
+
         public static void BindHostChain(HostChain hostChain)
         {
             _globalHostChain = hostChain;
@@ -57,7 +63,12 @@ namespace DCS.Lua
                 _globalLuaState = new LuaStateWrapper("GlobalEngine");
                 IntPtr L = _globalLuaState.L;
 
+                // System bindings
                 LuaBindings.RegisterAll(L);
+                
+                // The game bindings
+                if (RegisterBindingsCallback != null)
+                    RegisterBindingsCallback(L);
 
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";
                 if (File.Exists(bootstrapPath))

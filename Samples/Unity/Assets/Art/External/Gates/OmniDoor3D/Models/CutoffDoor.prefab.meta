@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cf148abd331a4f74ea7696147dafdea1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/CutoffDoor.prefab
+  uploadId: 756516

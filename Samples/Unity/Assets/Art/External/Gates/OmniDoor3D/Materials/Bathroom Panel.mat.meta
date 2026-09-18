@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d363ab1d119bd524184dc21859e09274
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Bathroom Panel.mat
+  uploadId: 756516

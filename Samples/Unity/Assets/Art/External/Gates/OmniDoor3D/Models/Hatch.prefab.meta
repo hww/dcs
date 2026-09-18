@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1c145bd8498162b44ace85fc6f35d469
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Hatch.prefab
+  uploadId: 756516

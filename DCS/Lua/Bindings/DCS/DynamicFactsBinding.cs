@@ -12,17 +12,12 @@ namespace DCS.Lua.Bindings
     {
         public static void Register(IntPtr L)
         {
-            RegisterLuaFunction(L, Lua_GetFact, "facts_get");
-            RegisterLuaFunction(L, Lua_TryGetFact, "facts_try_get");
-            RegisterLuaFunction(L, Lua_SetFact, "facts_set");
+            LuaBindings.RegisterGlobalFunction(L, Lua_GetFact, "facts_get");
+            LuaBindings.RegisterGlobalFunction(L, Lua_TryGetFact, "facts_try_get");
+            LuaBindings.RegisterGlobalFunction(L, Lua_SetFact, "facts_set");
         }
 
-        private static void RegisterLuaFunction(IntPtr L, Func<IntPtr, int> fn, string name)
-        {
-            IntPtr ptr = Marshal.GetFunctionPointerForDelegate(fn);
-            LuaNative.lua_pushcclosure(L, ptr, 0);
-            LuaNative.lua_setglobal(L, name);
-        }
+
 
         private static DynamicFacts GetFacts(IntPtr L)
         {

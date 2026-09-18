@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d58431906ff13a84a912649c11d05a3e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Post Metal.prefab
+  uploadId: 756516

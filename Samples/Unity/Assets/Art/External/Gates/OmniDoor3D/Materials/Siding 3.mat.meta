@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1ab0cbbcc8cb9b148a412831770a9144
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Siding 3.mat
+  uploadId: 756516

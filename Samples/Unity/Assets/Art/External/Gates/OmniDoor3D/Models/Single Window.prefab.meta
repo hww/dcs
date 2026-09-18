@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 075a3461851be0b469c0c2f595f326dc
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Single Window.prefab
+  uploadId: 756516

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d602590bff7cab44894f397fe64fd898
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/CutoffDoor-Smooth.prefab
+  uploadId: 756516

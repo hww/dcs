@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b9454ad551d67ea41908e66d8b58d888
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Light Cyan.mat
+  uploadId: 756516

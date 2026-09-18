@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 50dfb239ea5c5bf438ccc9cedfcb9ee5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Metal Bumpy.mat
+  uploadId: 756516

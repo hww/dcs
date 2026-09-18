@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a573976fd84de534ba6872810e272c18
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Models/Door.prefab
+  uploadId: 756516

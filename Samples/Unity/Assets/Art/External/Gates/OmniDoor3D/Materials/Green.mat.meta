@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3a0112c44a2286e4ca4ec4d7b210861e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318975
+  packageName: OmniDoor3D
+  packageVersion: 1.0
+  assetPath: Assets/Plugins/OmniDoor3D/Materials/Green.mat
+  uploadId: 756516
