@@ -118,6 +118,20 @@ namespace DCS.Lua
                         case ReplMessageType.Shutdown:
                             session.Dispose();
                             break;
+
+                        case ReplMessageType.CheckComplete:
+                            bool isSyntaxError;
+                            bool isComplete = _replEvaluator.IsCodeComplete(packet.Payload, out isSyntaxError);
+
+                            if (isComplete)
+                            {
+                                session.SendResponse(ReplMessageType.StatusComplete, "");
+                            }
+                            else
+                            {
+                                session.SendResponse(ReplMessageType.StatusIncomplete, "");
+                            }
+                            break;
                     }
                 }
             }

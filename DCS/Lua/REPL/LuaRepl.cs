@@ -128,5 +128,45 @@ namespace DCS.Lua
                 default: return $"<type {t}>";
             }
         }
+
+        public bool IsCodeComplete(string input, out bool syntaxError)
+        {
+            syntaxError = false;
+            if (string.IsNullOrWhiteSpace(input)) return true;
+
+            int startTop = LuaNative.lua_gettop(_L);
+            try
+            {
+                // Пробуем скомпилировать как выражение
+                int status = LuaNative.luaL_loadstring(_L, "return " + input);
+                if (status == 0) return true; // Скомпилировалось как выражение — код завершен!
+
+                // Если не выражение, пробуем как обычный блок кода
+                LuaNative.lua_settop(_L, startTop);
+                status = LuaNative.luaL_loadstring(_L, input);
+
+                if (status == 0) return true; // Скомпилировалось как стейтмент — код завершен!
+
+                // Если произошла ошибка компиляции, смотрим текст ошибки
+                int errIdx = LuaNative.lua_gettop(_L);
+                IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
+                string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "";
+
+                // Если ошибка содержит "<eof>", значит код синтаксически верен, но просто не закончен
+                if (err.Contains("<eof>"))
+                {
+                    return false;
+                }
+
+                // Любая другая ошибка (например, написали "if then if") — это жесткий синтаксический бред,
+                // завершаем ввод, чтобы рантайм выплюнул пользователю ошибку синтаксиса
+                syntaxError = true;
+                return true;
+            }
+            finally
+            {
+                LuaNative.lua_settop(_L, startTop); // Чистим стек
+            }
+        }
     }
 }

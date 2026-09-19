@@ -6,7 +6,10 @@ namespace DCS.Lua
     {
         Ping = 0,
         Eval = 10,
-        Shutdown = 20
+        Shutdown = 20,
+        CheckComplete = 30, // Запрос от клиента: "Код завершен?"
+        StatusComplete = 31, // Ответ от Unity: "Да, завершен, можно выполнять"
+        StatusIncomplete = 32 // Ответ от Unity: "Нет, оборван на <eof>, жду еще строк"
     }
 
     /// <summary>
