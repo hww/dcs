@@ -81,7 +81,7 @@ namespace DCS.Lua
                     session.Start();
                     _sessions.Add(session);
 
-                    session.SendResponse(ReplMessageType.Ping, "Welcome to DCS Lua nREPL Engine!\n");
+                    session.SendResponse(ReplMessageType.Ping, "Connected\n");
                 }
                 catch (Exception e)
                 {

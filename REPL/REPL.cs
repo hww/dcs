@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -24,25 +25,39 @@ namespace DCS.Lua.Client
         private static bool _handshakeDone = false;
         private static readonly object _consoleLock = new object();
 
-        // Сигналы ответа от Unity для основного потока ввода
         private static bool _waitingForStatus = false;
         private static bool _isServerCodeComplete = true;
+
+        // --- Win32 API для включения поддержки ANSI-последовательностей в Windows ---
+        private const int STD_OUTPUT_HANDLE = -11;
+        private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetStdHandle(int nStdHandle);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 
         static void Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
+
+            // Включаем нативную поддержку ANSI escape-кодов
+            TryEnableAnsiSupport();
+
             using var client = new TcpClient();
 
             try
             {
-                Console.WriteLine($"[Client] Подключение к nREPL серверу {HOST}:{PORT}...");
+                Console.WriteLine($"\u001b[90m:: Connecting to nREPL server at {HOST}:{PORT}...\u001b[0m");
                 client.Connect(HOST, PORT);
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[Client] Ошибка подключения: {ex.Message}");
-                Console.ResetColor();
+                Console.WriteLine($"\u001b[91m[Client] Connection error: {ex.Message}\u001b[0m");
                 return;
             }
 
@@ -52,7 +67,8 @@ namespace DCS.Lua.Client
 
             while (!_handshakeDone && _alive) Thread.Sleep(5);
 
-            PrintHelpMessage();
+            // Показываем стартовый баннер при подключении
+            PrintWelcomeMessage();
 
             var multiLineAccumulator = new StringBuilder();
 
@@ -60,12 +76,13 @@ namespace DCS.Lua.Client
             {
                 while (_alive)
                 {
-                    // Рисуем промт: если буфер пуст — начало строки "lua> ", если пишем блок — "   ... "
                     lock (_consoleLock)
                     {
-                        Console.ForegroundColor = multiLineAccumulator.Length == 0 ? ConsoleColor.Cyan : ConsoleColor.DarkGray;
-                        Console.Write(multiLineAccumulator.Length == 0 ? "lua> " : "   ... ");
-                        Console.ResetColor();
+                        // Промт dcs> в бирюзовом цвете, блоки кода ... в сером
+                        if (multiLineAccumulator.Length == 0)
+                            Console.Write("\u001b[1;\u001b[36mdcs> \u001b[0m");
+                        else
+                            Console.Write("\u001b[90m   ... \u001b[0m");
                     }
 
                     string currentLine = Console.ReadLine();
@@ -74,31 +91,27 @@ namespace DCS.Lua.Client
                     string trimmedLine = currentLine.Trim();
                     string lowerLine = trimmedLine.ToLower();
 
-                    // Системные команды обрабатываем мгновенно (только на чистом буфере)
+                    // Системные команды REPL оболочки
                     if (multiLineAccumulator.Length == 0 && (lowerLine == "exit" || lowerLine == "quit" || lowerLine == "clear" || lowerLine == "help"))
                     {
                         if (lowerLine == "exit" || lowerLine == "quit") { SendPacket(stream, ReplMessageType.Shutdown, ""); _alive = false; break; }
                         if (lowerLine == "clear") { Console.Clear(); continue; }
-                        if (lowerLine == "help") { PrintHelpMessage(); continue; }
+                        if (lowerLine == "help") { PrintHelpCommands(); continue; }
                     }
 
-                    // Добавляем текущую строку в накопительный буфер OpenGOAL-style
                     if (multiLineAccumulator.Length > 0) multiLineAccumulator.Append("\n");
                     multiLineAccumulator.Append(currentLine);
 
                     string fullPendingCode = multiLineAccumulator.ToString();
 
-                    // Запрашиваем у Unity проверку завершенности скобок/блоков кода Lua
                     _waitingForStatus = true;
                     SendPacket(stream, ReplMessageType.CheckComplete, fullPendingCode);
 
-                    // Блокируем ввод, пока кооперативный ответ от Update() в Unity не вернется по сети
                     while (_waitingForStatus && _alive)
                     {
                         Thread.Sleep(2);
                     }
 
-                    // Если Unity сказала, что код полностью завершен (баланс блоков равен нулю)
                     if (_isServerCodeComplete)
                     {
                         lock (_consoleLock)
@@ -106,19 +119,13 @@ namespace DCS.Lua.Client
                             SendPacket(stream, ReplMessageType.Eval, fullPendingCode);
                         }
                         multiLineAccumulator.Clear();
-
-                        // Даем микропаузу, чтобы ReceiveLoop успел выплюнуть результат до отрисовки следующего "lua> "
                         Thread.Sleep(50);
                     }
-                    // Если код не завершен (висят открытые function, if, таблицы) — просто уходим на следующий виток цикла,
-                    // буфер multiLineAccumulator сохраняется, и терминал выведет "   ... "
                 }
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"\n[Client] Ошибка: {ex.Message}");
-                Console.ResetColor();
+                Console.WriteLine($"\n\u001b[91m[Client] Ошибка: {ex.Message}\u001b[0m");
             }
             finally
             {
@@ -128,17 +135,46 @@ namespace DCS.Lua.Client
             }
         }
 
-        private static void PrintHelpMessage()
+        private const string CORE_VERSION = "v1.0 DCS";
+        private const string BUILD_SHA = "9854123";
+
+        // Метод отрисовки стартового экрана (Welcome) в стиле SOOT
+        private static void PrintWelcomeMessage()
         {
             lock (_consoleLock)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("\n======================= REPL CONTROLS =======================");
-                Console.ResetColor();
-                Console.WriteLine("  help  - Справка | clear - Очистить экран | exit - Выход");
-                Console.WriteLine("=============================================================");
-                Console.WriteLine("  Поддерживается многострочный ввод OpenGOAL-style!");
-                Console.WriteLine("  Нажмите Enter в конце блока (end), чтобы отправить его.\n");
+                var welcome = new StringBuilder();
+                welcome.AppendLine("\u001b[90m--------------------------------------------------\u001b[0m");
+                welcome.AppendLine("                   \u001b[1mD C S\u001b[0m");
+                welcome.AppendLine("          \u001b[90mDynamic Component System\u001b[0m");
+                welcome.AppendLine("\u001b[90m--------------------------------------------------\u001b[0m");
+
+                welcome.AppendLine($"\u001b[90mcore:\u001b[0m     \u001b[1m{CORE_VERSION}\u001b[0m");
+                welcome.AppendLine($"\u001b[90mbuild:\u001b[0m    \u001b[36msha:{BUILD_SHA}\u001b[0m \u001b[90mtag:\u001b[0m");
+                welcome.AppendLine($"\u001b[90mtype:\u001b[0m     \u001b[33mInteractive Shell (REPL)\u001b[0m");
+                welcome.AppendLine("\u001b[90m--------------------------------------------------\u001b[0m");
+
+                // Исправлено: убрали упоминание несуществующей команды (keybinds)
+                welcome.AppendLine("Type \u001b[36mhelp\u001b[0m for list of available shell commands\n");
+
+                Console.Write(welcome.ToString());
+            }
+        }
+
+        // Реальный вывод справки по системным командам на команду 'help'
+        private static void PrintHelpCommands()
+        {
+            lock (_consoleLock)
+            {
+                var help = new StringBuilder();
+                help.AppendLine("\n\u001b[1mДоступные команды REPL оболочки:\u001b[0m");
+                help.AppendLine("  \u001b[36mhelp\u001b[0m  - Показать это справочное сообщение");
+                help.AppendLine("  \u001b[36mclear\u001b[0m - Очистить экран терминала");
+                help.AppendLine("  \u001b[36mexit\u001b[0m  - Завершить сессию REPL и закрыть сервер");
+                help.AppendLine("  \u001b[36mquit\u001b[0m  - То же, что и exit\n");
+
+                help.AppendLine("\u001b[90mЛюбые другие выражения будут отправлены на сервер как код Lua.\u001b[0m\n");
+                Console.Write(help.ToString());
             }
         }
 
@@ -200,7 +236,6 @@ namespace DCS.Lua.Client
                         payload = Encoding.UTF8.GetString(bodyBuffer);
                     }
 
-                    // Обрабатываем статусы валидации строк от Unity
                     if (type == ReplMessageType.StatusComplete)
                     {
                         _isServerCodeComplete = true;
@@ -213,51 +248,12 @@ namespace DCS.Lua.Client
                         _waitingForStatus = false;
                         continue;
                     }
-
-                    lock (_consoleLock)
-                    {
-                        if (type == ReplMessageType.Ping)
-                        {
-                            PrintAnsiNative(payload);
-                            _handshakeDone = true;
-                        }
-                        else if (type == ReplMessageType.Eval)
-                        {
-                            PrintAnsiNative(payload);
-                        }
-                    }
+                    lock (_consoleLock) { if (type == ReplMessageType.Ping || type == ReplMessageType.Eval) { Console.Write(payload); if (type == ReplMessageType.Ping) _handshakeDone = true; } }
                 }
             }
-            catch
-            {
-                _alive = false;
-            }
-        }
-
-        private static void PrintAnsiNative(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return;
-            int i = 0;
-            while (i < text.Length)
-            {
-                if (text[i] == '\u001b' && i + 1 < text.Length && text[i + 1] == '[')
-                {
-                    int start = i + 2;
-                    int end = start;
-                    while (end < text.Length && !char.IsLetter(text[end])) end++;
-                    if (end < text.Length)
-                    {
-                        string code = text.Substring(start, end - start);
-                        if (code == "0") Console.ResetColor();
-                        else if (code == "91") Console.ForegroundColor = ConsoleColor.Red; // Светло-красный
-                        else if (code == "93") Console.ForegroundColor = ConsoleColor.Yellow; // Золотой return
-                        else if (code == "32") Console.ForegroundColor = ConsoleColor.Green; else if (code == "90") Console.ForegroundColor = ConsoleColor.DarkGray; else if (code.Contains("38;5;208")) Console.ForegroundColor = ConsoleColor.DarkYellow; i = end + 1; continue;
-                    }
-                }
-                Console.Write(text[i]); i++;
-            }
-            Console.ResetColor();
+            catch { _alive = false; }
         }
         private static void ReadExact(NetworkStream stream, byte[] buffer, int bytesToRead) { int totalRead = 0; while (totalRead < bytesToRead) { int read = stream.Read(buffer, totalRead, bytesToRead - totalRead); if (read <= 0) throw new EndOfStreamException(); totalRead += read; } }
+        private static void TryEnableAnsiSupport() { if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { var iStdOut = GetStdHandle(STD_OUTPUT_HANDLE); if (GetConsoleMode(iStdOut, out uint lpMode)) { lpMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING; SetConsoleMode(iStdOut, lpMode); } } }
     }
 }
