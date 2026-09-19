@@ -13,7 +13,7 @@ namespace DCS.Lua.Client
         Shutdown = 20
     }
 
-    class Program
+    class REPL
     {
         private const string HOST = "127.0.0.1";
         private const int PORT = 49155;
