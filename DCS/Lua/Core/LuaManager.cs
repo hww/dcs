@@ -21,6 +21,7 @@ namespace DCS.Lua
         public static EventSubscription _eventSubscriptionPool;
         public static TypeChain _globalTypeChain;
 
+        private LuaTcpServer _replServer;
         /// <summary>
         /// Делегат регистрации биндингов. Игра назначает свой.
         /// Если не назначен — используется базовый LuaBindings.RegisterAll.
@@ -46,6 +47,7 @@ namespace DCS.Lua
                 return;
             }
             _instance = this;
+            Application.runInBackground = true;
             DontDestroyOnLoad(gameObject);
             ComponentRegistry.InitializeAllPools();
         }
@@ -80,6 +82,11 @@ namespace DCS.Lua
                 {
                     Debug.LogError($"[LuaManager] Bootstrap-файл не найден: {bootstrapPath}");
                 }
+
+                _replServer = new LuaTcpServer(L, 49155);
+                _replServer.StartServer();
+                Debug.Log("[LuaManager] Инициализация ядра и nREPL полностью завершена.");
+
             }
             catch (Exception e)
             {
@@ -96,6 +103,8 @@ namespace DCS.Lua
             if (_globalLuaState == null) return;
 
             IntPtr L = _globalLuaState.L;
+
+            _replServer?.Tick();
 
             LuaNative.lua_getglobal(L, "DCS_Global_FrameUpdate");
             if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
@@ -148,6 +157,7 @@ namespace DCS.Lua
 
         void OnDestroy()
         {
+            _replServer?.StopServer();
             _globalLuaState?.Dispose();
         }
     }

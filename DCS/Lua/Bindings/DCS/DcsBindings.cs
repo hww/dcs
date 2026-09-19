@@ -29,7 +29,9 @@ namespace DCS.Lua.Bindings
             LuaBindings.RegisterMethod(L, Lua_SetField, "SetField");
             LuaBindings.RegisterMethod(L, Lua_TryGetField, "TryGetField");
             LuaBindings.RegisterMethod(L, Lua_CreateHost, "CreateHost");
-            LuaBindings.RegisterMethod(L, Lua_AttachPrefab, "AttachPrefab");  // <-- DCS-операция
+            LuaBindings.RegisterMethod(L, Lua_GetComponent, "GetComponent");      // <-- новое
+            LuaBindings.RegisterMethod(L, Lua_Attach, "Attach");  // <-- DCS-операция
+            LuaBindings.RegisterMethod(L, Lua_Spawn, "Spawn"); // <-- новое
             LuaNative.lua_setglobal(L, "DCS");
         }
 
@@ -292,20 +294,66 @@ namespace DCS.Lua.Bindings
         // Add prefab to the Host ID
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private static int Lua_AttachPrefab(IntPtr L)
+        private static int Lua_Attach(IntPtr L)
         {
             int packedHost = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            string prefabPath = ReadString(L, 2);
+            string goName = ReadString(L, 2);
 
             Host host = Host.FromLua(packedHost);
-            if (!HostManager.IsValid(host) || string.IsNullOrEmpty(prefabPath))
+            if (!HostManager.IsValid(host) || string.IsNullOrEmpty(goName))
             {
                 LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
 
-            bool ok = ViewService.AttachPrefab(host, prefabPath);
+            bool ok = ViewService.Attach(host, goName);
             LuaNative.lua_pushboolean(L, ok ? 1 : 0);
+            return 1;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_Spawn(IntPtr L)
+        {
+            string prefabPath = ReadString(L, 1);
+            string goName = ReadString(L, 2);
+
+            GameObject prefab = Resources.Load<GameObject>(prefabPath);
+            if (prefab == null) { LuaNative.lua_pushnil(L); return 1; }
+
+            GameObject go = UnityEngine.Object.Instantiate(prefab);
+            go.name = goName;
+
+            Host host = HostManager.CreateHost();
+            var link = go.GetComponent<IHostReference>();
+            if (link == null) { UnityEngine.Object.Destroy(go); LuaNative.lua_pushnil(L); return 1; }
+
+            HostManager.LinkHostReference(host, link);
+
+            LuaNative.lua_pushinteger(L, host.ToLua());
+            return 1;
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_GetComponent(IntPtr L)
+        {
+            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            Host host = Host.FromLua(packedHost);
+            if (!HostManager.IsValid(host) || LuaManager._globalHostChain == null)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            ChainNode node = LuaManager._globalHostChain.GetTypedHandle(host, typeId);
+            if (node.IsNull)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            LuaNative.lua_pushinteger(L, node.Component.Pack());
             return 1;
         }
     }

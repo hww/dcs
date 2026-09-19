@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace DCS.Lua
 {
@@ -104,18 +105,41 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "lua_pushnumber")]
         public static extern void lua_pushnumber(IntPtr L, double n);
 
-        [DllImport(LUA_DLL, EntryPoint = "lua_pushstring")]
-        public static extern IntPtr lua_pushstring(IntPtr L, string s);
-
         [DllImport(LUA_DLL, EntryPoint = "lua_pushcclosure")]
         public static extern void lua_pushcclosure(IntPtr L, IntPtr fn, int n);
 
         [DllImport(LUA_DLL, EntryPoint = "lua_pushlightuserdata")]
         public static extern void lua_pushlightuserdata(IntPtr L, IntPtr p);
 
+        // Для существующего кода — принимает string
+        [DllImport(LUA_DLL, EntryPoint = "lua_pushstring", CharSet = CharSet.Ansi)]
+        public static extern IntPtr lua_pushstring(IntPtr L, byte[] s);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_pushstring", CharSet = CharSet.Ansi)]
+        public static extern IntPtr lua_pushstring(IntPtr L, string s);
+        
+        // Для UTF-8 — принимает byte[], если понадобится
+        [DllImport(LUA_DLL, EntryPoint = "lua_pushlstring")]
+        public static extern IntPtr lua_tolstring(IntPtr L, int idx, out UIntPtr len);
+
+        public static string lua_tostring(IntPtr L, int idx)
+        {
+            var p = lua_tolstring(L, idx, out UIntPtr len);
+            if (p == IntPtr.Zero) return null;
+
+            int n = (int)len;
+            if (n == 0) return string.Empty;
+
+            byte[] buf = new byte[n];
+            Marshal.Copy(p, buf, 0, n);
+            return Encoding.UTF8.GetString(buf);
+        }
         // ============================================================
         //  TO CONVERSION
         // ============================================================
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_touserdata")]
+        public static extern IntPtr lua_touserdata(IntPtr L, int idx);
 
         [DllImport(LUA_DLL, EntryPoint = "lua_tolstring")]
         public static extern IntPtr lua_tolstring(IntPtr L, int idx, IntPtr len);
@@ -129,9 +153,7 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "lua_tonumberx")]
         public static extern double lua_tonumberx(IntPtr L, int idx, IntPtr isnum);
 
-        [DllImport(LUA_DLL, EntryPoint = "lua_touserdata")]
-        public static extern IntPtr lua_touserdata(IntPtr L, int idx);
-
+ 
         // ============================================================
         // SWAPS AND ROTATES
         // ============================================================
@@ -160,6 +182,8 @@ namespace DCS.Lua
         public const int LUA_TFUNCTION = 6;
         public const int LUA_TUSERDATA = 7;
         public const int LUA_TTHREAD = 8;
+        public const int LUA_MULTRET = -1;
+
 
         // ============================================================
         //  ERROR HANDLING

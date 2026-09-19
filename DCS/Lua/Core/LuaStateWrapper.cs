@@ -9,6 +9,11 @@ namespace DCS.Lua
         public IntPtr L { get; private set; }
         private readonly string _stateName;
 
+        // Используем встроенный в .NET делегат Func<IntPtr, int> — именно он работал у тебя изначально!
+        private readonly Func<IntPtr, int> _printDelegate;
+
+        public static Action<string> ActiveLogRedirect;
+
         public LuaStateWrapper(string stateName = "Global")
         {
             _stateName = stateName;
@@ -17,23 +22,53 @@ namespace DCS.Lua
 
             LuaNative.luaL_openlibs(L);
 
-            // КОНКРЕТНОЕ ИСПРАВЛЕНИЕ: Переопределяем стандартный Lua-макрос print на наш C#-метод
-            IntPtr printPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_Print);
+            // КРИСТАЛЬНО ТОЧНОЕ ВОССТАНОВЛЕНИЕ ТВОЕГО СТАРОГО КОДА:
+            _printDelegate = Lua_Print;
+            IntPtr printPtr = Marshal.GetFunctionPointerForDelegate(_printDelegate);
             LuaNative.lua_pushcclosure(L, printPtr, 0);
             LuaNative.lua_setglobal(L, "print");
         }
 
-        // Чистый PInvoke-коллбэк, который перехватывает вызовы print() из Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Print(IntPtr L)
         {
-            // Извлекаем строку из стека Lua (первый аргумент)
-            IntPtr ptr = LuaNative.lua_tolstring(L, 1, IntPtr.Zero);
-            string message = Marshal.PtrToStringAnsi(ptr);
+            try
+            {
+                // Забираем первый аргумент, строго как в твоем исходнике
+                IntPtr ptr = LuaNative.lua_tolstring(L, 1, IntPtr.Zero);
 
-            // Выводим в родную консоль Unity
-            Debug.Log($"[Lua] {message}");
+                // Железная защита от NULL указателей
+                if (ptr == IntPtr.Zero)
+                {
+                    if (ActiveLogRedirect != null) ActiveLogRedirect("nil");
+                    else Debug.Log("[Lua] nil");
+                    return 0;
+                }
+
+                string message = Marshal.PtrToStringAnsi(ptr);
+
+                if (ActiveLogRedirect != null)
+                {
+                    ActiveLogRedirect(message);
+                }
+                else
+                {
+                    Debug.Log($"[Lua] {message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Если что-то пошло не так, просто пишем в Unity, не давая упасть нативной части
+                Debug.LogError($"[Lua Print Guard] {ex.Message}");
+            }
             return 0;
+        }
+
+        public string GetStringFromStack(int index)
+        {
+            IntPtr ptr = LuaNative.lua_tolstring(L, index, IntPtr.Zero);
+            if (ptr == IntPtr.Zero) return "";
+            return Marshal.PtrToStringAnsi(ptr);
         }
 
         public void ExecuteString(string code, string chunkName = "chunk")
@@ -51,12 +86,6 @@ namespace DCS.Lua
                 string error = GetStringFromStack(-1);
                 Debug.LogError($"[Lua Syntax Error In {_stateName}] {error}");
             }
-        }
-
-        public string GetStringFromStack(int index)
-        {
-            IntPtr ptr = LuaNative.lua_tolstring(L, index, IntPtr.Zero);
-            return Marshal.PtrToStringAnsi(ptr);
         }
 
         public void Dispose()

@@ -263,5 +263,10 @@ namespace DCS.Core
             hostRef.FirstComponent = -1;
             HostManager.Invalidate(host);
         }
+
+        public ref ChainNode GetNodeByIndex(int index)
+        {
+            return ref _components[index];
+        }
     }
 }
