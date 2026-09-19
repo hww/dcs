@@ -51,7 +51,7 @@ namespace DCS.Lua
                     int errIdx = LuaNative.lua_gettop(_L);
                     IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
                     string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "unknown syntax error";
-                    return $"SYNTAX ERROR: {err}\n";
+                    return $"\u001b[91mSYNTAX ERROR: {err}\u001b[0m\n";
                 }
 
                 // 2. Выполняем чанк через защищенный pcall
@@ -62,7 +62,7 @@ namespace DCS.Lua
                     int errIdx = LuaNative.lua_gettop(_L);
                     IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
                     string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "unknown runtime error";
-                    return $"RUNTIME ERROR: {err}\n";
+                    return $"\u001b[91mRUNTIME ERROR: {err}\u001b[0m\n";
                 }
 
                 // 3. Считаем валидные return-значения
