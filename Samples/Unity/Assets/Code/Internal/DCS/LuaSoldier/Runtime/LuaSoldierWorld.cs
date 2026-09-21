@@ -15,7 +15,7 @@ namespace DCS.LuaSoldier
         [Header("World")]
         public int Capacity = 100;
 
-        private HostChain _chain;
+        private Domain _domain;
         private EventSubscription _subPool;
         private TypeChain _typeChain;
 
@@ -28,7 +28,7 @@ namespace DCS.LuaSoldier
         private Transform[] _transforms;
         private int _viewCount;
 
-        public HostChain Chain => _chain;
+        public HostChain Chain => _domain.HostChain;
 
         void Awake()
         {
@@ -37,16 +37,14 @@ namespace DCS.LuaSoldier
 
             ComponentRegistry.InitializeAllPools();
 
-            _chain = new HostChain();
-            _subPool = new EventSubscription(Capacity);
-            _typeChain = new TypeChain();
+            _domain = DomainRegistry.Create("Default");
+
 
             _views = new GameObject[Capacity];
             _animators = new Animator[Capacity];
             _transforms = new Transform[Capacity];
 
-            LuaManager.BindHostChain(_chain);
-            LuaManager.BindEventSystems(_subPool, _typeChain);
+            GameManager.BindDomain(_domain);
         }
 
         void Update()
@@ -54,10 +52,10 @@ namespace DCS.LuaSoldier
             float dt = Time.deltaTime;
             Transform camT = Camera != null ? Camera.transform : transform;
 
-            KeyboardInputSystem.Update(_chain, Camera);
-            MovementSystem.Update(_chain, camT, dt);
-            AnimationSystem.Update(_chain, _animators);
-            TransformSyncSystem.Update(_chain, _transforms);
+            KeyboardInputSystem.Update(_domain.HostChain, Camera);
+            MovementSystem.Update(_domain.HostChain, camT, dt);
+            AnimationSystem.Update(_domain.HostChain, _animators);
+            TransformSyncSystem.Update(_domain.HostChain, _transforms);
         }
 
         /// <summary>
@@ -94,7 +92,7 @@ namespace DCS.LuaSoldier
                 Debug.LogWarning($"[LuaSoldierWorld] На префабе {prefabPath} нет IHostReference.");
 
             // Добавляем ViewComponent — связь с трансформом и аниматором
-            Handle hView = DCSystem.Allocate<ViewComponent>(host, _chain);
+            Handle hView = DCSystem.Allocate<ViewComponent>(host, _domain.HostChain);
             DCSystem.ResolveHandle<ViewComponent>(hView).ViewId = viewId;
 
             // Запоминаем связку
@@ -102,7 +100,7 @@ namespace DCS.LuaSoldier
             _hostToViewId[host.Id] = viewId;
 
             // Если это игрок — привязываем камеру
-            Handle hPlayer = DCSystem.Get<PlayerTag>(host, _chain);
+            Handle hPlayer = DCSystem.Get<PlayerTag>(host, _domain.HostChain);
             if (!hPlayer.IsNull && Camera != null)
                 Camera.Target = go.transform;
 

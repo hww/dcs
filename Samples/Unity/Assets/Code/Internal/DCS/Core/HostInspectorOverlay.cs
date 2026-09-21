@@ -16,6 +16,7 @@ namespace DCS.Core
         public Color TextColor = Color.yellow;
         public float Margin = 10f;
         public float LineHeight = 18f;
+        public EHostChain hostChain;
 
         private GUIStyle _style;
         private readonly StringBuilder _sb = new StringBuilder(512);
@@ -30,7 +31,8 @@ namespace DCS.Core
 
             // Строим текст
             _sb.Clear();
-            HostInspector.InspectHost(host, LuaManager._globalHostChain, _sb);
+            var chain = DomainRegistry.Get((int)hostChain).HostChain;
+            HostInspector.InspectHost(host, chain, _sb);
 
             // Стиль — один раз, чтобы не аллоцировать каждый кадр
             if (_style == null || _style.fontSize != FontSize)

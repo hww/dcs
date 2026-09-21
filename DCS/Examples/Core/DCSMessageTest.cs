@@ -84,7 +84,7 @@ public class DCSMessageTest : MonoBehaviour
 
     private void Start()
     {
-        _hostChain = new HostChain();
+        _hostChain = DomainRegistry.Create("Default").HostChain;
         _typeChain = new TypeChain();
         _subManager = new EventSubscription(1000);
 

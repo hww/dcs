@@ -1,8 +1,7 @@
+using DCS.Core;
 using System.Text;
 
-namespace DCS.Core
-{
-    public static class HostInspector
+  public static class HostInspector
     {
         /// <summary>
         /// Формирует отформатированный текст со всеми компонентами хоста.
@@ -62,4 +61,3 @@ namespace DCS.Core
             return sb.ToString();
         }
     }
-}

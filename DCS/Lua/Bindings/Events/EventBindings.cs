@@ -4,10 +4,6 @@ using DCS.Core;
 
 namespace DCS.Lua.Bindings
 {
-    /// <summary>
-    /// Low-level bridge between Lua and the existing DCS EventSystem.
-    /// Existing global function names are preserved.
-    /// </summary>
     public static class EventBindings
     {
         public static void Register(IntPtr L)
@@ -21,16 +17,25 @@ namespace DCS.Lua.Bindings
 
             LuaBindings.RegisterMethod(L, Lua_EmitEvent, "EmitEvent");
             LuaBindings.RegisterMethod(L, Lua_RegisterSubscription, "RegisterSubscription");
+            LuaBindings.RegisterMethod(L, Lua_UnregisterSubscription, "UnregisterSubscription");
             LuaBindings.RegisterMethod(L, Lua_DeliverEvent, "DeliverEvent");
 
             LuaNative.lua_settop(L, -2);
         }
 
+        // ------------------------------------------------------------
+        //  DCS.EmitEvent(domainId, eventTypeId, hostId)
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_EmitEvent(IntPtr L)
         {
-            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+
+            HostChain chain = DomainRegistry.Get(domainId).HostChain;
+            if (chain == null)
+                return 0;
 
             if (!TryGetHost(hostId, out Host host))
                 return 0;
@@ -39,42 +44,73 @@ namespace DCS.Lua.Bindings
                 return 0;
 
             var pool = ComponentRegistry.Pools[typeId];
-            if (pool == null || LuaManager._globalHostChain == null)
+            if (pool == null)
                 return 0;
 
-            Handle handle = pool.SystemAllocate(host, LuaManager._globalHostChain);
+            Handle handle = pool.SystemAllocate(host, chain);
             if (!handle.IsNull)
                 LuaManager.DeliverEventToLua(hostId, typeId, handle.Pack());
 
             return 0;
         }
 
+        // ------------------------------------------------------------
+        //  DCS.RegisterSubscription(domainId, hostId, eventTypeId)
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RegisterSubscription(IntPtr L)
         {
-            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             int eventTypeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            if (!TryGetHost(hostId, out Host host))
-                return 0;
+            Domain domain = DomainRegistry.Get(domainId);
+            if (domain == null) return 0;
 
-            if (eventTypeId < 0 || eventTypeId >= ComponentRegistry.MaxComponentTypes)
-                return 0;
+            if (!TryGetHost(hostId, out Host host)) return 0;
+            if (eventTypeId < 0 || eventTypeId >= ComponentRegistry.MaxComponentTypes) return 0;
 
-            if (LuaManager._eventSubscriptionPool != null &&
-                LuaManager._globalHostChain != null &&
-                LuaManager._globalTypeChain != null)
-            {
-                LuaManager._eventSubscriptionPool.SystemSubscribe(
-                    host,
-                    eventTypeId,
-                    LuaManager._globalHostChain,
-                    LuaManager._globalTypeChain);
-            }
-
+            domain.SubscriptionPool.SystemSubscribe(
+                host,
+                eventTypeId,
+                domain.HostChain,
+                domain.TypeChain);
             return 0;
         }
 
+
+        // ------------------------------------------------------------
+        //  DCS.UnregisterSubscription(domainId, hostId, packedSubHandle)
+        // ------------------------------------------------------------
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_UnregisterSubscription(IntPtr L)
+        {
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int packedSubHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+
+            if (packedSubHandle == HandleConfig.NULL_INDEX) return 0;
+
+            Domain domain = DomainRegistry.Get(domainId);
+            if (domain == null) return 0;
+
+            Handle subHandle = new Handle(packedSubHandle);
+
+            // Берём host из ростера подписки, чтобы не требовать его снаружи
+            var pool = domain.SubscriptionPool;
+            if (!pool.TryGetHost(subHandle, out Host host)) return 0;
+
+            domain.SubscriptionPool.FreeSubscription(
+                host,
+                domain.HostChain,
+                domain.TypeChain,
+                ref subHandle);
+            return 0;
+        }
+
+        // ------------------------------------------------------------
+        //  DCS.DeliverEvent(receiverHostId, eventTypeId, packedHandle)
+        //  domainId не нужен — доставка идёт по конкретному хосту/пулу
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_DeliverEvent(IntPtr L)
         {
@@ -100,17 +136,10 @@ namespace DCS.Lua.Bindings
         private static bool TryGetHost(int hostId, out Host host)
         {
             host = default;
-
             if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
                 return false;
-
             ref HostData data = ref HostManager.GlobalHosts[hostId];
-            host = new Host
-            {
-                Id = (ushort)hostId,
-                Generation = data.Generation
-            };
-
+            host = new Host { Id = (ushort)hostId, Generation = data.Generation };
             return HostManager.IsValid(host);
         }
     }

@@ -21,15 +21,14 @@ namespace DCS.Tests.PlayMode
         public void Setup()
         {
             ComponentRegistry.InitializeAllPools();
-            var chain = new HostChain();
-            LuaManager._globalHostChain = chain;
+            var domain = DomainRegistry.Create("Default");
 
             _lua = new LuaStateWrapper("FieldMarshallingTests");
             DcsBindings.Register(_lua.L);
 
             _host = HostManager.CreateHost();
             _typeId = ComponentType<BenchmarkComponent>.Id;
-            _handle = ComponentRegistry.Pools[_typeId].SystemAllocate(_host, chain);
+            _handle = ComponentRegistry.Pools[_typeId].SystemAllocate(_host, domain.HostChain);
         }
 
         [TearDown]

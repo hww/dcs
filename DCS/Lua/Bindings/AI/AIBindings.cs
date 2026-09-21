@@ -5,13 +5,6 @@ using DCS.Gameplay;
 
 namespace DCS.Lua.Bindings
 {
-    /// <summary>
-    /// Lua-facing AI API. Exposes the global table "AI" with methods
-    /// to control agent combat roles from scripts.
-    ///
-    /// Usage from Lua:
-    ///   AI.SetCombatRole(hostId, CombatRole.Ambusher, strongPointId)
-    /// </summary>
     public static class AIBindings
     {
         public static void Register(IntPtr L)
@@ -22,25 +15,25 @@ namespace DCS.Lua.Bindings
             LuaNative.lua_setglobal(L, "AI");
         }
 
-
-
         // ------------------------------------------------------------
-        //  AI.SetCombatRole(hostId, role, strongPointId) -> handle
+        //  AI.SetCombatRole(chainId, hostId, role, strongPointId) -> handle
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetCombatRole(IntPtr L)
         {
-            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int role = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
-            int strongPointId = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int role = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+            int strongPointId = (int)LuaNative.lua_tointegerx(L, 4, IntPtr.Zero);
 
-            if (!TryGetHost(hostId, out Host host))
+            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            if (chain == null)
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            if (LuaManager._globalHostChain == null)
+            if (!TryGetHost(hostId, out Host host))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
@@ -49,7 +42,7 @@ namespace DCS.Lua.Bindings
             // Reuse existing component if present, else allocate.
             Handle handle;
             var pool = ComponentRegistry.GetPool<CombatRoleComponent>();
-            ChainNode existing = LuaManager._globalHostChain.GetTypedHandle(
+            ChainNode existing = chain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);
 
             if (!existing.IsNull)
@@ -58,7 +51,7 @@ namespace DCS.Lua.Bindings
             }
             else
             {
-                handle = pool.Allocate(host, LuaManager._globalHostChain);
+                handle = pool.Allocate(host, chain);
             }
 
             if (handle.IsNull)
@@ -77,20 +70,22 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  AI.GetCombatRole(hostId) -> role, strongPointId  (or nil)
+        //  AI.GetCombatRole(chainId, hostId) -> role, strongPointId  (or nil)
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetCombatRole(IntPtr L)
         {
-            int hostId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
-            if (!TryGetHost(hostId, out Host host) || LuaManager._globalHostChain == null)
+            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            if (chain == null || !TryGetHost(hostId, out Host host))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            ChainNode node = LuaManager._globalHostChain.GetTypedHandle(
+            ChainNode node = chain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);
 
             if (node.IsNull)

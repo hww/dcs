@@ -67,6 +67,7 @@ namespace DCS.Core
         /// <summary>Maximum number of concurrently existing components.</summary>
         public const int MaxComponents = 500000;
 
+
         /// <summary>Array of all chain nodes.</summary>
         private readonly ChainNode[] _components = new ChainNode[MaxComponents];
 

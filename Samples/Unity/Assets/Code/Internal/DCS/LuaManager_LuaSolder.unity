@@ -491,7 +491,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 251396608e8361c4683c06165e73d074, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DCS.LuaSoldier.LuaSoldierWorld
-  Camera: {fileID: 0}
+  Camera: {fileID: 1854508966}
   Capacity: 100
 --- !u!1 &1711294169
 GameObject:
@@ -594,7 +594,6 @@ GameObject:
   - component: {fileID: 1854508961}
   - component: {fileID: 1854508960}
   - component: {fileID: 1854508964}
-  - component: {fileID: 1854508963}
   - component: {fileID: 1854508966}
   - component: {fileID: 1854508965}
   m_Layer: 0
@@ -678,28 +677,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1854508963
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1854508959}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f6bd42f3734b444396487579ac3e141, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DCS.Soldiers.ThirdPersonCamera
-  Target: {fileID: 0}
-  LookAtHeight: 1.5
-  Distance: 5
-  Height: 2.2
-  MouseSensitivity: 3
-  MinPitch: -30
-  MaxPitch: 60
-  InvertY: 0
-  FollowSpeed: 10
-  RotateSpeed: 10
 --- !u!114 &1854508964
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -770,9 +747,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1854508959}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b989e9521a44c734faade58f4c4c4f9a, type: 3}
+  m_Script: {fileID: 11500000, guid: 5c25a0d2468eeb744a0c33054e5eb373, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: DCS.Framework::Camera
+  m_EditorClassIdentifier: Assembly-CSharp::DCS.LuaSoldier.LuaSoldierCamera
   _host:
     Id: 0
     Generation: 0
@@ -784,6 +761,16 @@ MonoBehaviour:
 
       }'
   FactsLifetime: 0
+  Target: {fileID: 0}
+  LookAtHeight: 1.5
+  Distance: 5
+  Height: 2.2
+  MouseSensitivity: 3
+  MinPitch: -30
+  MaxPitch: 60
+  InvertY: 0
+  FollowSpeed: 15
+  RotateSpeed: 15
 --- !u!1 &2066408634
 GameObject:
   m_ObjectHideFlags: 0
@@ -894,8 +881,8 @@ SceneRoots:
   - {fileID: 1711294171}
   - {fileID: 1729797740}
   - {fileID: 2066408636}
+  - {fileID: 772547323}
+  - {fileID: 1275694332}
   - {fileID: 1079006724}
   - {fileID: 5374512187824570916}
-  - {fileID: 1275694332}
   - {fileID: 508432690}
-  - {fileID: 772547323}

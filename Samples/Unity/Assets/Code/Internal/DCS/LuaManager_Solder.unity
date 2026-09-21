@@ -555,6 +555,7 @@ GameObject:
   - component: {fileID: 1854508960}
   - component: {fileID: 1854508964}
   - component: {fileID: 1854508963}
+  - component: {fileID: 1854508965}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -702,6 +703,29 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1854508965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1854508959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b989e9521a44c734faade58f4c4c4f9a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::Camera
+  _host:
+    Id: 0
+    Generation: 0
+  Animator: {fileID: 0}
+  Facts:
+    jsonData: '{
+
+      
+
+      }'
+  FactsLifetime: 0
 --- !u!1 &2066408634
 GameObject:
   m_ObjectHideFlags: 0

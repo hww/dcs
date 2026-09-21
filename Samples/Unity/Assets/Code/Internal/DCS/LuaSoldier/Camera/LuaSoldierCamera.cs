@@ -6,7 +6,7 @@ namespace DCS.LuaSoldier
     /// Third-person камера. Мышь крутит, идёт за таргетом.
     /// Per-frame. Lua не управляет.
     /// </summary>
-    public class LuaSoldierCamera : MonoBehaviour
+    public class LuaSoldierCamera : CameraActor
     {
         [Header("Target")]
         public Transform Target;

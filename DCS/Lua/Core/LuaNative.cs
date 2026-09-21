@@ -117,23 +117,9 @@ namespace DCS.Lua
 
         [DllImport(LUA_DLL, EntryPoint = "lua_pushstring", CharSet = CharSet.Ansi)]
         public static extern IntPtr lua_pushstring(IntPtr L, string s);
-        
-        // Для UTF-8 — принимает byte[], если понадобится
+
         [DllImport(LUA_DLL, EntryPoint = "lua_pushlstring")]
-        public static extern IntPtr lua_tolstring(IntPtr L, int idx, out UIntPtr len);
-
-        public static string lua_tostring(IntPtr L, int idx)
-        {
-            var p = lua_tolstring(L, idx, out UIntPtr len);
-            if (p == IntPtr.Zero) return null;
-
-            int n = (int)len;
-            if (n == 0) return string.Empty;
-
-            byte[] buf = new byte[n];
-            Marshal.Copy(p, buf, 0, n);
-            return Encoding.UTF8.GetString(buf);
-        }
+        public static extern IntPtr lua_pushlstring(IntPtr L, byte[] s, UIntPtr len);
         // ============================================================
         //  TO CONVERSION
         // ============================================================
@@ -153,7 +139,22 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "lua_tonumberx")]
         public static extern double lua_tonumberx(IntPtr L, int idx, IntPtr isnum);
 
- 
+        // Для UTF-8 — принимает byte[], если понадобится
+        [DllImport(LUA_DLL, EntryPoint = "lua_tolstring")]
+        public static extern IntPtr lua_tolstring(IntPtr L, int idx, out UIntPtr len);
+
+        public static string lua_tostring(IntPtr L, int idx)
+        {
+            var p = lua_tolstring(L, idx, out UIntPtr len);
+            if (p == IntPtr.Zero) return null;
+
+            int n = (int)len;
+            if (n == 0) return string.Empty;
+
+            byte[] buf = new byte[n];
+            Marshal.Copy(p, buf, 0, n);
+            return Encoding.UTF8.GetString(buf);
+        }
         // ============================================================
         // SWAPS AND ROTATES
         // ============================================================

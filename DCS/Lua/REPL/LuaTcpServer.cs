@@ -81,7 +81,8 @@ namespace DCS.Lua
                     session.Start();
                     _sessions.Add(session);
 
-                    session.SendResponse(ReplMessageType.Ping, "Connected\n");
+                    var version = GitUtils.GetCommitHash();
+                    session.SendResponse(ReplMessageType.Ping, $"Connected sha:{version}\n");
                 }
                 catch (Exception e)
                 {

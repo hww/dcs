@@ -22,7 +22,7 @@ public class DCSComponentsTest : MonoBehaviour
         ComponentRegistry.InitializeAllPools();
 
         // 1. Инициализируем системные таблицы
-        _chain = new HostChain();
+        _chain = DomainRegistry.Create("Default").HostChain;
         _visualRegistry = new GameObject[HostManager.MaxGameObjects];
         _updateScheduler = new UpdateScheduler();
         // 2. Генерируем сетку объектов

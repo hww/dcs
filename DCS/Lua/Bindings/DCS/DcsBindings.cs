@@ -1,6 +1,7 @@
 using DCS.Core;
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using UnityEngine;
 
 namespace DCS.Lua.Bindings
@@ -33,6 +34,39 @@ namespace DCS.Lua.Bindings
             LuaBindings.RegisterMethod(L, Lua_Attach, "Attach");  // <-- DCS-операция
             LuaBindings.RegisterMethod(L, Lua_Spawn, "Spawn"); // <-- новое
             LuaNative.lua_setglobal(L, "DCS");
+            RegisterDomains(L);
+        }
+
+        private static void RegisterDomains(IntPtr L)
+        {
+            LuaNative.lua_newtable(L);
+
+            // Кэшируем счётчик — на случай, если реестр изменится во время обхода
+            int count = DomainRegistry.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var domain = DomainRegistry.Get(i);
+                if (domain == null)
+                    continue;
+
+                // Защита от null имени
+                string name = string.IsNullOrEmpty(domain.Name)
+                    ? $"domain_{i}"
+                    : domain.Name;
+
+                // table[name] = id
+                // lua_setfield сам разберётся: top = value, key = name (строка C#)
+                LuaNative.lua_pushinteger(L, domain.Id);
+                LuaNative.lua_setfield(L, -2, name);
+
+                // Опционально: table[i] = id (по индексу)
+                // LuaNative.lua_pushinteger(L, chain.id);
+                // LuaNative.lua_seti(L, -2, i);
+
+                Debug.Log($"[GameBootstrap]   Domain[{i}] = '{name}'");
+            }
+
+            LuaNative.lua_setglobal(L, "Domain");
         }
 
         // ------------------------------------------------------------
@@ -86,11 +120,14 @@ namespace DCS.Lua.Bindings
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_CreateComponent(IntPtr L)
         {
-            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            // 1. Читаем domainId первым аргументом из Lua
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes ||
-                LuaManager._globalHostChain == null)
+            // 2. Достаем нужный чейн из реестра миров
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null || typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
@@ -110,7 +147,8 @@ namespace DCS.Lua.Bindings
                 return 1;
             }
 
-            Handle handle = pool.SystemAllocate(host, LuaManager._globalHostChain);
+            // 3. Пишем компонент в правильный чейн, который обновляет C# система
+            Handle handle = pool.SystemAllocate(host, domain.HostChain);
             if (handle.IsNull)
             {
                 LuaNative.lua_pushnil(L);
@@ -129,21 +167,22 @@ namespace DCS.Lua.Bindings
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RemoveComponent(IntPtr L)
         {
-            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero); // Читаем domainId
+            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHandle = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            if (packedHandle == HandleConfig.NULL_INDEX ||
-                typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes ||
-                LuaManager._globalHostChain == null)
+            if (packedHandle == HandleConfig.NULL_INDEX || typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
                 return 0;
+
+            HostChain chain = DomainRegistry.Get(domainId).HostChain;
+            if (chain == null) return 0;
 
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
-            if (pool == null)
-                return 0;
+            if (pool == null) return 0;
 
             if (pool.TryGetHost(handle, out Host host))
-                pool.SystemFree(host, LuaManager._globalHostChain, handle);
+                pool.SystemFree(host, chain, handle); // Освобождаем строго из этого чейна
 
             return 0;
         }
@@ -154,11 +193,12 @@ namespace DCS.Lua.Bindings
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_HasComponent(IntPtr L)
         {
-            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero); // Читаем domainId
+            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes ||
-                LuaManager._globalHostChain == null)
+            HostChain chain = DomainRegistry.Get(domainId).HostChain;
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes || chain == null)
             {
                 LuaNative.lua_pushboolean(L, 0);
                 return 1;
@@ -171,7 +211,7 @@ namespace DCS.Lua.Bindings
                 return 1;
             }
 
-            ChainNode node = LuaManager._globalHostChain.GetTypedHandle(host, typeId);
+            ChainNode node = chain.GetTypedHandle(host, typeId);
             LuaNative.lua_pushboolean(L, node.IsNull ? 0 : 1);
             return 1;
         }
@@ -336,17 +376,19 @@ namespace DCS.Lua.Bindings
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetComponent(IntPtr L)
         {
-            int typeId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int packedHost = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero); // Читаем domainId
+            int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            Host host = Host.FromLua(packedHost);
-            if (!HostManager.IsValid(host) || LuaManager._globalHostChain == null)
+            HostChain chain = DomainRegistry.Get(domainId).HostChain;
+            if (!HostManager.IsValid(Host.FromLua(packedHost)) || chain == null)
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            ChainNode node = LuaManager._globalHostChain.GetTypedHandle(host, typeId);
+            Host host = Host.FromLua(packedHost);
+            ChainNode node = chain.GetTypedHandle(host, typeId);
             if (node.IsNull)
             {
                 LuaNative.lua_pushnil(L);

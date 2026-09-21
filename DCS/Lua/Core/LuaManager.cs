@@ -17,9 +17,6 @@ namespace DCS.Lua
         private string LuaRootPath =>
             Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
-        public static HostChain _globalHostChain;
-        public static EventSubscription _eventSubscriptionPool;
-        public static TypeChain _globalTypeChain;
 
         private LuaTcpServer _replServer;
         /// <summary>
@@ -28,16 +25,6 @@ namespace DCS.Lua
         /// </summary>
         public static System.Action<IntPtr> RegisterBindingsCallback;
 
-        public static void BindHostChain(HostChain hostChain)
-        {
-            _globalHostChain = hostChain;
-        }
-
-        public static void BindEventSystems(EventSubscription subPool, TypeChain typeChain)
-        {
-            _eventSubscriptionPool = subPool;
-            _globalTypeChain = typeChain;
-        }
 
         void Awake()
         {

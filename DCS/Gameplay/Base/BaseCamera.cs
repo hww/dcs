@@ -3,14 +3,14 @@ using UnityEngine;
 
 namespace DCS.Core
 {
-    [RequireComponent(typeof(Camera))]
+    [RequireComponent(typeof(CameraActor))]
     public class BaseCamera : BaseActor
     {
-        public Camera UnityCamera { get; private set; }
+        public CameraActor UnityCamera { get; private set; }
 
         protected virtual void Awake()
         {
-            UnityCamera = GetComponent<Camera>();
+            UnityCamera = GetComponent<CameraActor>();
         }
 
         // ================================================

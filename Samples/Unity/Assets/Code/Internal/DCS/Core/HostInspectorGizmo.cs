@@ -17,6 +17,8 @@ namespace DCS.Core
         public bool AlwaysVisible = false;
         public float MaxDistance = 30f;
 
+        public EHostChain hostChain = 0;
+
         private IHostReference _reference;
 
         void Awake()
@@ -40,7 +42,8 @@ namespace DCS.Core
             }
 
             var sb = new System.Text.StringBuilder();
-            HostInspector.InspectHost(host, LuaManager._globalHostChain, sb);
+            var chain = DomainRegistry.Get((int)hostChain).HostChain;
+            HostInspector.InspectHost(host, chain, sb);
             string text = sb.ToString();
 
 #if UNITY_EDITOR

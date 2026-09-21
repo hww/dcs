@@ -20,10 +20,7 @@ namespace DCS.Soldiers
         [Header("Camera")]
         public ThirdPersonCamera Camera;
 
-        private HostChain _chain;
-        private EventSubscription _subPool;
-        private TypeChain _typeChain;
-
+        private Domain _domain;
         private GameObject[] _views;
         private Animator[] _animators;
         private Transform[] _transforms;
@@ -35,17 +32,13 @@ namespace DCS.Soldiers
         {
             ComponentRegistry.InitializeAllPools();
 
-            _chain = new HostChain();
-            _subPool = new EventSubscription(Capacity);
-            _typeChain = new TypeChain();
+            _domain = DomainRegistry.Create("Default");
+
 
             _views = new GameObject[Capacity];
             _animators = new Animator[Capacity];
             _transforms = new Transform[Capacity];
 
-            LuaManager._globalHostChain = _chain;
-            LuaManager._eventSubscriptionPool = _subPool;
-            LuaManager._globalTypeChain = _typeChain;
 
             for (int i = 0; i < SoldierCount; i++)
                 SpawnSoldier(i == 0);
@@ -73,30 +66,30 @@ namespace DCS.Soldiers
 
             // 3. Компоненты — через DCSystem
             DCSystem.ResolveHandle<SoldierTag>(
-                DCSystem.Allocate<SoldierTag>(host, _chain));
+                DCSystem.Allocate<SoldierTag>(host, _domain.HostChain));
 
             DCSystem.ResolveHandle<PositionComponent>(
-                DCSystem.Allocate<PositionComponent>(host, _chain)).Value = pos;
+                DCSystem.Allocate<PositionComponent>(host, _domain.HostChain)).Value = pos;
 
             DCSystem.ResolveHandle<VelocityComponent>(
-                DCSystem.Allocate<VelocityComponent>(host, _chain)).Value = Vector3.zero;
+                DCSystem.Allocate<VelocityComponent>(host, _domain.HostChain)).Value = Vector3.zero;
 
             DCSystem.ResolveHandle<InputComponent>(
-                DCSystem.Allocate<InputComponent>(host, _chain));
+                DCSystem.Allocate<InputComponent>(host, _domain.HostChain));
 
             DCSystem.ResolveHandle<CombatStateComponent>(
-                DCSystem.Allocate<CombatStateComponent>(host, _chain)).Value = ECombatState.Combat;
+                DCSystem.Allocate<CombatStateComponent>(host, _domain.HostChain)).Value = ECombatState.Combat;
 
             DCSystem.ResolveHandle<LocomotionComponent>(
-                DCSystem.Allocate<LocomotionComponent>(host, _chain)).Value = ELocomotion.Idle;
+                DCSystem.Allocate<LocomotionComponent>(host, _domain.HostChain)).Value = ELocomotion.Idle;
 
             DCSystem.ResolveHandle<ViewComponent>(
-                DCSystem.Allocate<ViewComponent>(host, _chain)).ViewId = viewId;
+                DCSystem.Allocate<ViewComponent>(host, _domain.HostChain)).ViewId = viewId;
 
             if (isPlayer)
             {
                 DCSystem.ResolveHandle<PlayerTag>(
-                    DCSystem.Allocate<PlayerTag>(host, _chain));
+                    DCSystem.Allocate<PlayerTag>(host, _domain.HostChain));
                 _playerHost = host;
 
                 if (isPlayer && Camera != null)
@@ -108,10 +101,10 @@ namespace DCS.Soldiers
         {
             float dt = Time.deltaTime;
 
-            PlayerInputSystem.Update(_playerHost, _chain, Camera);
-            MovementSystem.Update(_chain, Camera.transform, dt);
-            SoldierAnimationSystem.Update(_chain, _animators);
-            TransformSyncSystem.Update(_chain, _transforms);
+            PlayerInputSystem.Update(_playerHost, _domain.HostChain, Camera);
+            MovementSystem.Update(_domain.HostChain, Camera.transform, dt);
+            SoldierAnimationSystem.Update(_domain.HostChain, _animators);
+            TransformSyncSystem.Update(_domain.HostChain, _transforms);
         }
     }
 }

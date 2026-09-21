@@ -16,90 +16,72 @@ namespace DCS.Lua
             _L = L;
         }
 
-        /// <summary>
-        /// Вычислить выражение/код. Вызывается СТРОГО в главном потоке Unity.
-        /// </summary>
         public string Eval(string input)
         {
             if (string.IsNullOrWhiteSpace(input)) return "";
 
-            // Намертво фиксируем размер стека до начала выполнения пакета
             int startTop = LuaNative.lua_gettop(_L);
             var stdoutAccumulator = new StringBuilder();
-
-            // Включаем редирект для print()
             LuaStateWrapper.ActiveLogRedirect = (msg) => stdoutAccumulator.AppendLine(msg);
 
             try
             {
                 int topBeforeRun = LuaNative.lua_gettop(_L);
 
-                // 1. Пробуем скомпилировать как выражение (с return)
+                // Кладём debug.traceback под chunk
+                LuaNative.lua_getglobal(_L, "debug");
+                LuaNative.lua_getfield(_L, -1, "traceback");
+                LuaNative.lua_rotate(_L, -2, -1);
+                LuaNative.lua_settop(_L, -2);
+                // Пробуем как выражение
                 int status = LuaNative.luaL_loadstring(_L, "return " + input);
                 if (status != LUA_OK)
                 {
-                    // Ошибка синтаксиса выражения — срезаем стек строго до зоны безопасности
-                    LuaNative.lua_settop(_L, topBeforeRun);
-
-                    // Пробуем скомпилировать как обычный блок кода/стейтмент
+                    LuaNative.lua_settop(_L, topBeforeRun + 1);
                     status = LuaNative.luaL_loadstring(_L, input);
                 }
 
                 if (status != LUA_OK)
                 {
-                    // БРОНИРОВАННЫЙ разбор ошибок синтаксиса: забираем сырой указатель без вызова нативного тостринга
-                    int errIdx = LuaNative.lua_gettop(_L);
-                    IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
+                    IntPtr ptr = LuaNative.lua_tolstring(_L, -1, IntPtr.Zero);
                     string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "unknown syntax error";
                     return $"\u001b[91mSYNTAX ERROR: {err}\u001b[0m\n";
                 }
 
-                // 2. Выполняем чанк через защищенный pcall
-                status = LuaNative.lua_pcallk(_L, 0, -1, 0, 0, IntPtr.Zero);
+                // Стек: [..., traceback, chunk]
+                status = LuaNative.lua_pcallk(_L, 0, -1, -2, 0, IntPtr.Zero);
                 if (status != LUA_OK)
                 {
-                    // БРОНИРОВАННЫЙ разбор рантайм-ошибок (например, класса не существует)
-                    int errIdx = LuaNative.lua_gettop(_L);
-                    IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
+                    IntPtr ptr = LuaNative.lua_tolstring(_L, -1, IntPtr.Zero);
                     string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "unknown runtime error";
                     return $"\u001b[91mRUNTIME ERROR: {err}\u001b[0m\n";
                 }
 
-                // 3. Считаем валидные return-значения
+                // Стек: [..., traceback, result1, result2, ...]
                 int currentTop = LuaNative.lua_gettop(_L);
-                int nres = currentTop - topBeforeRun;
+                int nres = currentTop - topBeforeRun - 1;
 
                 var resultBuilder = new StringBuilder();
-
-                // Вытаскиваем то, что успел наловить print
                 if (stdoutAccumulator.Length > 0)
-                {
                     resultBuilder.Append(stdoutAccumulator.ToString());
-                }
 
-                // Форматируем return-значения
                 for (int i = 1; i <= nres; i++)
                 {
                     if (i > 1) resultBuilder.Append('\t');
-                    resultBuilder.Append(FormatValueSafe(_L, topBeforeRun + i));
+                    resultBuilder.Append(FormatValueSafe(_L, topBeforeRun + 1 + i));
                 }
-
                 if (nres > 0) resultBuilder.Append('\n');
-
                 if (resultBuilder.Length == 0) resultBuilder.Append("ok\n");
-
                 return resultBuilder.ToString();
             }
             catch (Exception ex)
             {
-                return $"INTERNAL REPL EXCEPTION: {ex.Message}\n";
+                Debug.LogException(ex);
+                return $"INTERNAL REPL EXCEPTION: {ex}\n";
             }
             finally
             {
-                // Выключаем редирект принтов
                 LuaStateWrapper.ActiveLogRedirect = null;
-
-                // ЖЕЛЕЗНЫЙ ЗАКОН: Возвращаем стек к исходному размеру, полностью стирая любой мусор
                 LuaNative.lua_settop(_L, startTop);
             }
         }
@@ -137,35 +119,25 @@ namespace DCS.Lua
             int startTop = LuaNative.lua_gettop(_L);
             try
             {
-                // Пробуем скомпилировать как выражение
                 int status = LuaNative.luaL_loadstring(_L, "return " + input);
-                if (status == 0) return true; // Скомпилировалось как выражение — код завершен!
+                if (status == 0) return true;
 
-                // Если не выражение, пробуем как обычный блок кода
                 LuaNative.lua_settop(_L, startTop);
                 status = LuaNative.luaL_loadstring(_L, input);
+                if (status == 0) return true;
 
-                if (status == 0) return true; // Скомпилировалось как стейтмент — код завершен!
-
-                // Если произошла ошибка компиляции, смотрим текст ошибки
-                int errIdx = LuaNative.lua_gettop(_L);
-                IntPtr ptr = LuaNative.lua_tolstring(_L, errIdx, IntPtr.Zero);
+                IntPtr ptr = LuaNative.lua_tolstring(_L, -1, IntPtr.Zero);
                 string err = (ptr != IntPtr.Zero) ? Marshal.PtrToStringAnsi(ptr) : "";
 
-                // Если ошибка содержит "<eof>", значит код синтаксически верен, но просто не закончен
                 if (err.Contains("<eof>"))
-                {
                     return false;
-                }
 
-                // Любая другая ошибка (например, написали "if then if") — это жесткий синтаксический бред,
-                // завершаем ввод, чтобы рантайм выплюнул пользователю ошибку синтаксиса
                 syntaxError = true;
                 return true;
             }
             finally
             {
-                LuaNative.lua_settop(_L, startTop); // Чистим стек
+                LuaNative.lua_settop(_L, startTop);
             }
         }
     }

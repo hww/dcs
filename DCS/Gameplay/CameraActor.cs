@@ -3,7 +3,7 @@ using DCS.Lua;
 using System;
 using UnityEngine;
 
-public class Camera : BaseActor
+public class CameraActor : BaseActor
 {
     [Header("Entity Actor - Physics")]
     public Animator Animator;

@@ -4,15 +4,6 @@ using DCS.Core;
 
 namespace DCS.Lua.Bindings
 {
-    /// <summary>
-    /// Lua-домен "Camera": только поиск Host камеры по имени.
-    /// Yaw/Pitch/позиция — через DCS.GetField/SetField на компонентах.
-    ///
-    /// Использование из Lua:
-    ///   local camHost = Camera.Find("MainCamera")
-    ///   local lookComp = DCS.GetComponent(COMPONENT.CameraLookComponent, camHost)
-    ///   local yaw = DCS.GetField(COMPONENT.CameraLookComponent, lookComp, "Yaw")
-    /// </summary>
     public static class CameraBindings
     {
         public static void Register(IntPtr L)
@@ -24,19 +15,28 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  Camera.Find(name) -> packedHost | nil
+        //  Camera.Find(chainId, name) -> packedHost | nil
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Find(IntPtr L)
         {
-            string name = ReadString(L, 1);
+            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            string name = ReadString(L, 2);
+
             if (string.IsNullOrEmpty(name))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            if (CameraSystem.TryFindByName(name, LuaManager._globalHostChain, out Host host))
+            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            if (chain == null)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            if (CameraSystem.TryFindByName(name, chain, out Host host))
             {
                 LuaNative.lua_pushinteger(L, host.ToLua());
                 return 1;
@@ -47,12 +47,21 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  Camera.GetMain() -> packedHost | nil
+        //  Camera.GetMain(chainId) -> packedHost | nil
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetMain(IntPtr L)
         {
-            if (CameraSystem.TryFindMain(LuaManager._globalHostChain, out Host host))
+            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+
+            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            if (chain == null)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            if (CameraSystem.TryFindMain(chain, out Host host))
             {
                 LuaNative.lua_pushinteger(L, host.ToLua());
                 return 1;
