@@ -76,6 +76,9 @@ namespace DCS.Lua.Bindings
         private static int Lua_CreateHost(IntPtr L)
         {
             Host host = HostManager.CreateHost();
+            if (!HostManager.IsValid(host))
+                return LuaNative.lua_error(L, "[DcsBindings] CreateHost: failed to create host");
+
             LuaNative.lua_pushinteger(L, host.ToLua());
             return 1;
         }
@@ -98,24 +101,19 @@ namespace DCS.Lua.Bindings
         {
             int id = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             if (id < 0 || id >= ComponentRegistry.MaxComponentTypes)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetTypeNameById: type id {id} out of range [0, {ComponentRegistry.MaxComponentTypes})");
 
             string name = ComponentRegistry.GetTypeNameById(id);
             if (string.IsNullOrEmpty(name))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L, $"[DcsBindings] GetTypeNameById: no type registered for id {id}");
 
             LuaNative.lua_pushstring(L, name);
             return 1;
         }
 
         // ------------------------------------------------------------
-        //  DCS_CreateComponent(typeId, packedHost) -> packedHandle | nil
+        //  DCS_CreateComponent(domainId, typeId, packedHost) -> packedHandle | nil
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_CreateComponent(IntPtr L)
@@ -127,40 +125,33 @@ namespace DCS.Lua.Bindings
 
             // 2. Достаем нужный чейн из реестра миров
             var domain = DomainRegistry.Get(domainId);
-            if (domain == null || typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+            if (domain == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] CreateComponent: domain id {domainId} not found");
+
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] CreateComponent: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
 
             Host host = Host.FromLua(packedHost);
             if (!HostManager.IsValid(host))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L, $"[DcsBindings] CreateComponent: invalid host {packedHost}");
 
             var pool = ComponentRegistry.Pools[typeId];
             if (pool == null)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L, $"[DcsBindings] CreateComponent: no pool for type id {typeId}");
 
             // 3. Пишем компонент в правильный чейн, который обновляет C# система
             Handle handle = pool.SystemAllocate(host, domain.HostChain);
             if (handle.IsNull)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] CreateComponent: failed to allocate component type {typeId} for host {packedHost}");
 
             LuaNative.lua_pushinteger(L, handle.Pack());
             return 1;
         }
 
         // ------------------------------------------------------------
-        //  DCS_RemoveComponent(typeId, packedHandle) -> void
+        //  DCS_RemoveComponent(domainId, typeId, packedHandle) -> void
         //  Handle already encodes the roster slot, so host lookup
         //  goes through the pool, not through GlobalHosts.
         // ------------------------------------------------------------
@@ -171,16 +162,28 @@ namespace DCS.Lua.Bindings
             int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            if (packedHandle == HandleConfig.NULL_INDEX || typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+            // null handle — это no-op, не ошибка
+            if (packedHandle == HandleConfig.NULL_INDEX)
                 return 0;
 
-            HostChain chain = DomainRegistry.Get(domainId).HostChain;
-            if (chain == null) return 0;
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] RemoveComponent: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
+
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] RemoveComponent: domain id {domainId} not found");
+
+            HostChain chain = domain.HostChain;
+            if (chain == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] RemoveComponent: domain {domainId} has no HostChain");
 
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
-            if (pool == null) return 0;
+            if (pool == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] RemoveComponent: no pool for type id {typeId}");
 
+            // Если хост не найден — компонент уже удалён, это no-op
             if (pool.TryGetHost(handle, out Host host))
                 pool.SystemFree(host, chain, handle); // Освобождаем строго из этого чейна
 
@@ -188,7 +191,8 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  DCS_HasComponent(typeId, packedHost) -> bool
+        //  DCS_HasComponent(domainId, typeId, packedHost) -> bool
+        //  Предикат: false — легитимный ответ, ошибки только на невалидных аргументах.
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_HasComponent(IntPtr L)
@@ -197,12 +201,17 @@ namespace DCS.Lua.Bindings
             int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             int packedHost = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            HostChain chain = DomainRegistry.Get(domainId).HostChain;
-            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes || chain == null)
-            {
-                LuaNative.lua_pushboolean(L, 0);
-                return 1;
-            }
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] HasComponent: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
+
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] HasComponent: domain id {domainId} not found");
+
+            HostChain chain = domain.HostChain;
+            if (chain == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] HasComponent: domain {domainId} has no HostChain");
 
             Host host = Host.FromLua(packedHost);
             if (!HostManager.IsValid(host))
@@ -226,27 +235,28 @@ namespace DCS.Lua.Bindings
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             string fieldName = ReadString(L, 3);
 
-            if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
-                typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+            if (packedHandle == HandleConfig.NULL_INDEX)
+                return LuaNative.lua_error(L, "[DcsBindings] GetField: null handle");
+
+            if (string.IsNullOrEmpty(fieldName))
+                return LuaNative.lua_error(L, "[DcsBindings] GetField: field name is empty");
+
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetField: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
 
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
-            if (pool == null || !pool.TryGetDenseIndex(handle, out int denseIndex))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+            if (pool == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] GetField: no pool for type id {typeId}");
+
+            if (!pool.TryGetDenseIndex(handle, out int denseIndex))
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetField: handle {packedHandle} not found in pool {typeId}");
 
             int topBefore = LuaNative.lua_gettop(L);
             if (!pool.GetField(denseIndex, fieldName, L))
-            {
-                return LuaNative.luaL_error(L, $"[DCS Error] Field '{fieldName}' does not exist.");
-            }
+                return LuaNative.lua_error(L, $"[DCS Error] Field '{fieldName}' does not exist.");
 
             int count = LuaNative.lua_gettop(L) - topBefore;
             return count > 0 ? count : 1;
@@ -254,6 +264,7 @@ namespace DCS.Lua.Bindings
 
         // ------------------------------------------------------------
         //  DCS_TryGetField(typeId, packedHandle, fieldName) -> ok, values...
+        //  Try-вариант: false — легитимный ответ.
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_TryGetField(IntPtr L)
@@ -262,14 +273,15 @@ namespace DCS.Lua.Bindings
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             string fieldName = ReadString(L, 3);
 
-            if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
-                typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
-            {
-                LuaNative.lua_pushboolean(L, 0);
-                LuaNative.lua_pushnil(L);
-                return 2;
-            }
+            if (packedHandle == HandleConfig.NULL_INDEX)
+                return LuaNative.lua_error(L, "[DcsBindings] TryGetField: null handle");
+
+            if (string.IsNullOrEmpty(fieldName))
+                return LuaNative.lua_error(L, "[DcsBindings] TryGetField: field name is empty");
+
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] TryGetField: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
 
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
@@ -305,21 +317,28 @@ namespace DCS.Lua.Bindings
             int packedHandle = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             string fieldName = ReadString(L, 3);
 
-            if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
-                typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
-                return 0;
+            if (packedHandle == HandleConfig.NULL_INDEX)
+                return LuaNative.lua_error(L, "[DcsBindings] SetField: null handle");
+
+            if (string.IsNullOrEmpty(fieldName))
+                return LuaNative.lua_error(L, "[DcsBindings] SetField: field name is empty");
+
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] SetField: type id {typeId} out of range [0, {ComponentRegistry.MaxComponentTypes})");
 
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[typeId];
-            if (pool == null || !pool.TryGetDenseIndex(handle, out int denseIndex))
-                return 0;
+            if (pool == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] SetField: no pool for type id {typeId}");
+
+            if (!pool.TryGetDenseIndex(handle, out int denseIndex))
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] SetField: handle {packedHandle} not found in pool {typeId}");
 
             if (!pool.SetField(denseIndex, fieldName, L))
-            {
-                return LuaNative.luaL_error(L,
+                return LuaNative.lua_error(L,
                     $"[DCS Write Error] Cannot write to field '{fieldName}' on component type {typeId}.");
-            }
 
             return 0;
         }
@@ -331,7 +350,7 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        // Add prefab to the Host ID
+        //  DCS_Attach(packedHost, goName) -> bool
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Attach(IntPtr L)
@@ -339,57 +358,99 @@ namespace DCS.Lua.Bindings
             int packedHost = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             string goName = ReadString(L, 2);
 
+            if (string.IsNullOrEmpty(goName))
+                return LuaNative.lua_error(L, "[DcsBindings] Attach: game object name is empty");
+
             Host host = Host.FromLua(packedHost);
-            if (!HostManager.IsValid(host) || string.IsNullOrEmpty(goName))
-            {
-                LuaNative.lua_pushboolean(L, 0);
-                return 1;
-            }
+            if (!HostManager.IsValid(host))
+                return LuaNative.lua_error(L, $"[DcsBindings] Attach: invalid host {packedHost}");
 
             bool ok = ViewService.Attach(host, goName);
-            LuaNative.lua_pushboolean(L, ok ? 1 : 0);
+            if (!ok)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] Attach: failed to attach '{goName}' to host {packedHost}");
+
+            LuaNative.lua_pushboolean(L, 1);
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_Spawn(packedHost, prefabPath) -> packedHost
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Spawn(IntPtr L)
         {
-            string prefabPath = ReadString(L, 1);
-            string goName = ReadString(L, 2);
+            int packedHost = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            string prefabPath = ReadString(L, 2);
+
+            if (string.IsNullOrEmpty(prefabPath))
+                return LuaNative.lua_error(L, "[DcsBindings] Spawn: prefab path is empty");
+
+            Host host = Host.FromLua(packedHost);
+            if (!HostManager.IsValid(host))
+                return LuaNative.lua_error(L, $"[DcsBindings] Spawn: invalid host {packedHost}");
 
             GameObject prefab = Resources.Load<GameObject>(prefabPath);
-            if (prefab == null) { LuaNative.lua_pushnil(L); return 1; }
+            if (prefab == null)
+                return LuaNative.lua_error(L, $"[DcsBindings] Can't load prefab '{prefabPath}'");
 
             GameObject go = UnityEngine.Object.Instantiate(prefab);
-            go.name = goName;
 
-            Host host = HostManager.CreateHost();
             var link = go.GetComponent<IHostReference>();
-            if (link == null) { UnityEngine.Object.Destroy(go); LuaNative.lua_pushnil(L); return 1; }
+            if (link == null)
+            {
+                UnityEngine.Object.Destroy(go);
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] Can't find IHostReference in prefab '{prefabPath}'");
+            }
 
             HostManager.LinkHostReference(host, link);
 
-            LuaNative.lua_pushinteger(L, host.ToLua());
+            LuaNative.lua_pushinteger(L, packedHost);
             return 1;
         }
 
+        // ------------------------------------------------------------
+        //  DCS_GetComponent(domainId, typeId, packedHost) -> packedHandle | nil
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetComponent(IntPtr L)
         {
-            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero); // Читаем domainId
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             int typeId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
             int packedHost = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
 
-            HostChain chain = DomainRegistry.Get(domainId).HostChain;
-            if (!HostManager.IsValid(Host.FromLua(packedHost)) || chain == null)
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetComponent: domain id {domainId} not found");
+
+            HostChain chain = domain.HostChain;
+            if (chain == null)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetComponent: domain {domainId} has no HostChain");
+
+            if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
+                return LuaNative.lua_error(L,
+                    $"[DcsBindings] GetComponent: type id {typeId} out of range");
+
+            Host host = Host.FromLua(packedHost);
+            if (!HostManager.IsValid(host))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            Host host = Host.FromLua(packedHost);
             ChainNode node = chain.GetTypedHandle(host, typeId);
             if (node.IsNull)
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
+
+            // Проверяем, что handle не протух (компонент ещё жив в пуле)
+            IComponentPool pool = ComponentRegistry.Pools[typeId];
+            if (pool == null || !pool.TryGetDenseIndex(node.Component, out _))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;

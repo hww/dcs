@@ -57,7 +57,7 @@ namespace DCS.Core
         private static int _typeCounter = 0;
 
         /// <summary>Maximum number of component types.</summary>
-        public const int MaxComponentTypes = 200;
+        public const int MaxComponentTypes = DcsConfig.MaxComponentTypes;
 
         /// <summary>Array of all component pools, indexed by TypeId.</summary>
         public static readonly IComponentPool[] Pools = new IComponentPool[MaxComponentTypes];

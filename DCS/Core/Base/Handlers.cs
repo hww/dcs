@@ -3,6 +3,18 @@ using System;
 namespace DCS.Core
 {
     /// <summary>
+    /// Единая конфигурация лимитов DCS.
+    /// Инвариант: MaxComponentsPerHost * MaxGameObjects <= MaxChainNodes.
+    /// </summary>
+    public static class DcsConfig
+    {
+        public const int MaxGameObjects = 65535;
+        public const int MaxComponentsPerHost = 8;    // с запасом на будущее
+        public const int MaxChainNodes = MaxGameObjects * MaxComponentsPerHost;
+        public const int MaxTypeNodes = 100000;
+        public const int MaxComponentTypes = 200;
+    }
+    /// <summary>
     /// Configuration for packed handles (16-bit ID + 16-bit Generation = 32-bit int).
     /// 65,535 concurrent objects is enough for Ratchet & Clank scale games.
     /// We DO NOT use 64-bit handles to keep Lua interop fast and memory small.

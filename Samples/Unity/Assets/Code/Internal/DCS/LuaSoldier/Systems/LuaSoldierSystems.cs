@@ -14,20 +14,12 @@ namespace DCS.LuaSoldier
 
         public static void Update(HostChain chain, LuaSoldierCamera camera)
         {
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var inputPool = ComponentRegistry.GetPool<KeyboardInputComponent>();
+            for (int i = 0; i < inputPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref KeyboardInputComponent input = ref inputPool.Components[i];
+                Host host = inputPool.Roster[input.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
-
-                Handle hInput = DCSystem.Get<KeyboardInputComponent>(host, chain);
-                if (hInput.IsNull) continue;
-
-                ref KeyboardInputComponent input = ref DCSystem.ResolveHandle<KeyboardInputComponent>(hInput);
 
                 float forward = 0f, strafe = 0f;
                 if (Input.GetKey(KeyCode.W)) forward += 1f;
@@ -67,23 +59,15 @@ namespace DCS.LuaSoldier
             camForward.y = 0f; camForward.Normalize();
             camRight.y = 0f; camRight.Normalize();
 
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var posPool = ComponentRegistry.GetPool<PositionComponent>();
+            for (int i = 0; i < posPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref PositionComponent pos = ref posPool.Components[i];
+                Host host = posPool.Roster[pos.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
-
-                Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
-                if (hPos.IsNull) continue;
-
-                ref PositionComponent pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
 
                 // Смотрим, какой input-компонент есть на хосте
                 float forward = 0f, strafe = 0f;
@@ -139,28 +123,19 @@ namespace DCS.LuaSoldier
         static readonly int PARAM_COMBAT = Animator.StringToHash("Combat");
         static readonly int PARAM_FALLTYPE = Animator.StringToHash("FallType");
 
-        public static void Update(HostChain chain, Animator[] animators)
+        public static void Update(HostChain chain)
         {
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
+            for (int i = 0; i < viewPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref ViewComponent view = ref viewPool.Components[i];
+                Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
 
-                Handle hView = DCSystem.Get<ViewComponent>(host, chain);
-                if (hView.IsNull) continue;
-
-                ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
-                if (view.ViewId < 0 || view.ViewId >= animators.Length) continue;
-
-                Animator animator = animators[view.ViewId];
+                Animator animator = view.Actor.Animator;
                 if (animator == null) continue;
 
                 // На земле?
@@ -191,30 +166,24 @@ namespace DCS.LuaSoldier
 
     public static class TransformSyncSystem
     {
-        public static void Update(HostChain chain, Transform[] transforms)
+        public static void Update(HostChain chain)
         {
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
+            for (int i = 0; i < viewPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref ViewComponent view = ref viewPool.Components[i];
+                Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
 
-                Handle hView = DCSystem.Get<ViewComponent>(host, chain);
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
-                if (hView.IsNull || hPos.IsNull) continue;
+                if (hPos.IsNull) continue;
 
-                ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
                 ref PositionComponent pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
 
-                if (view.ViewId < 0 || view.ViewId >= transforms.Length) continue;
-                Transform t = transforms[view.ViewId];
+                Transform t = view.Actor.transform;
                 if (t == null) continue;
 
                 t.position = pos.Value;

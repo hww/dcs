@@ -53,7 +53,7 @@ namespace DCS.Core
     public class TypeChain
     {
         /// <summary>Maximum number of subscription nodes.</summary>
-        public const int MaxTypeNodes = 100000;
+        public const int MaxTypeNodes = DcsConfig.MaxTypeNodes;
 
         /// <summary>Array of all type chain nodes.</summary>
         private readonly TypeChainNode[] _nodes = new TypeChainNode[MaxTypeNodes];

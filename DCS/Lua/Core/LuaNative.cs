@@ -193,6 +193,17 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "luaL_error")]
         public static extern int luaL_error(IntPtr L, string fmt);
 
+        /// <summary>
+        /// Alias for the luaL_error
+        /// </summary>
+        /// <param name="L"></param>
+        /// <param name="fmt"></param>
+        /// <returns></returns>
+        public static int lua_error(IntPtr L, string fmt)
+        {
+            return luaL_error(L, fmt); 
+        }
+
         // ============================================================
         //  GC
         // ============================================================

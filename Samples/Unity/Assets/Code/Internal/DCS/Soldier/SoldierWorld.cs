@@ -20,80 +20,64 @@ namespace DCS.Soldiers
         [Header("Camera")]
         public ThirdPersonCamera Camera;
 
-        private Domain _domain;
-        private GameObject[] _views;
-        private Animator[] _animators;
-        private Transform[] _transforms;
-        private int _viewCount;
+        private HostChain _chain;
+        private EventSubscription _subPool;
+        private TypeChain _typeChain;
 
+        private int _soldierCounter;
         private Host _playerHost;
 
         void Awake()
         {
             ComponentRegistry.InitializeAllPools();
 
-            _domain = DomainRegistry.Create("Default");
+            _chain = new HostChain();
+            _subPool = new EventSubscription(Capacity);
+            _typeChain = new TypeChain();
 
-
-            _views = new GameObject[Capacity];
-            _animators = new Animator[Capacity];
-            _transforms = new Transform[Capacity];
-
-
-            for (int i = 0; i < SoldierCount; i++)
+            // Избавился от знака "меньше", чтобы парсер гарантированно не ломал код
+            int i = 0;
+            while (i != SoldierCount)
+            {
                 SpawnSoldier(i == 0);
-
+                i++;
+            }
         }
 
         void SpawnSoldier(bool isPlayer)
         {
-            if (_viewCount >= Capacity) return;
+            int index = _soldierCounter++;
 
-            int viewId = _viewCount++;
-
-            // 1. GameObject из префаба
-            Vector3 pos = SpawnOrigin + new Vector3(viewId * SpawnSpacing, 0f, 0f);
+            Vector3 pos = SpawnOrigin + new Vector3(index * SpawnSpacing, 0f, 0f);
             GameObject go = Instantiate(SoldierPrefab, pos, Quaternion.identity);
-            go.name = isPlayer ? "Player" : $"Soldier_{viewId}";
+            go.name = isPlayer ? "Player" : $"Soldier_{index}";
 
-            _views[viewId] = go;
-            _transforms[viewId] = go.transform;
-            _animators[viewId] = go.GetComponentInChildren<Animator>();
+            Actor actor = go.GetComponentInChildren<Actor>();
 
-            // 2. Хост
             Host host = HostManager.CreateHost();
             HostManager.LinkHostReference(host, go.GetComponent<IHostReference>());
 
-            // 3. Компоненты — через DCSystem
-            DCSystem.ResolveHandle<SoldierTag>(
-                DCSystem.Allocate<SoldierTag>(host, _domain.HostChain));
+            DCSystem.ResolveHandle<SoldierTag>(DCSystem.Allocate<SoldierTag>(host, _chain));
+            DCSystem.ResolveHandle<PositionComponent>(DCSystem.Allocate<PositionComponent>(host, _chain)).Value = pos;
+            DCSystem.ResolveHandle<VelocityComponent>(DCSystem.Allocate<VelocityComponent>(host, _chain)).Value = Vector3.zero;
+            DCSystem.ResolveHandle<InputComponent>(DCSystem.Allocate<InputComponent>(host, _chain));
+            DCSystem.ResolveHandle<CombatStateComponent>(DCSystem.Allocate<CombatStateComponent>(host, _chain)).Value = ECombatState.Combat;
+            DCSystem.ResolveHandle<LocomotionComponent>(DCSystem.Allocate<LocomotionComponent>(host, _chain)).Value = ELocomotion.Idle;
 
-            DCSystem.ResolveHandle<PositionComponent>(
-                DCSystem.Allocate<PositionComponent>(host, _domain.HostChain)).Value = pos;
-
-            DCSystem.ResolveHandle<VelocityComponent>(
-                DCSystem.Allocate<VelocityComponent>(host, _domain.HostChain)).Value = Vector3.zero;
-
-            DCSystem.ResolveHandle<InputComponent>(
-                DCSystem.Allocate<InputComponent>(host, _domain.HostChain));
-
-            DCSystem.ResolveHandle<CombatStateComponent>(
-                DCSystem.Allocate<CombatStateComponent>(host, _domain.HostChain)).Value = ECombatState.Combat;
-
-            DCSystem.ResolveHandle<LocomotionComponent>(
-                DCSystem.Allocate<LocomotionComponent>(host, _domain.HostChain)).Value = ELocomotion.Idle;
-
-            DCSystem.ResolveHandle<ViewComponent>(
-                DCSystem.Allocate<ViewComponent>(host, _domain.HostChain)).ViewId = viewId;
+            // Прямая запись Unity-ссылок в компонент
+            Handle hView = DCSystem.Allocate<ViewComponent>(host, _chain);
+            ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
+            view.Actor = actor;
 
             if (isPlayer)
             {
-                DCSystem.ResolveHandle<PlayerTag>(
-                    DCSystem.Allocate<PlayerTag>(host, _domain.HostChain));
+                DCSystem.ResolveHandle<PlayerTag>(DCSystem.Allocate<PlayerTag>(host, _chain));
                 _playerHost = host;
 
-                if (isPlayer && Camera != null)
-                    Camera.Target = _transforms[viewId];
+                if (Camera != null)
+                {
+                    Camera.Target = actor.transform;
+                }
             }
         }
 
@@ -101,10 +85,13 @@ namespace DCS.Soldiers
         {
             float dt = Time.deltaTime;
 
-            PlayerInputSystem.Update(_playerHost, _domain.HostChain, Camera);
-            MovementSystem.Update(_domain.HostChain, Camera.transform, dt);
-            SoldierAnimationSystem.Update(_domain.HostChain, _animators);
-            TransformSyncSystem.Update(_domain.HostChain, _transforms);
+            if (Camera != null)
+            {
+                PlayerInputSystem.Update(_playerHost, _chain, Camera);
+                MovementSystem.Update(_chain, Camera.transform, dt);
+                SoldierAnimationSystem.Update(_chain);
+                TransformSyncSystem.Update(_chain);
+            }
         }
     }
 }

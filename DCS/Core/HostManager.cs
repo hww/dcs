@@ -28,7 +28,7 @@ namespace DCS.Core
     public static class HostManager
     {
         /// <summary>Maximum number of concurrently existing hosts.</summary>
-        public const int MaxGameObjects = 65535;
+        public const int MaxGameObjects = DcsConfig.MaxGameObjects;
 
         /// <summary>Array of all hosts.</summary>
         /// <remarks>

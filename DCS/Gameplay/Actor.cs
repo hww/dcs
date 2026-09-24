@@ -17,6 +17,7 @@ namespace DCS.Core
     public class Actor : BaseActor
     {
         [Header("Entity Actor - Physics")]
+        public Transform Transform;
         public Rigidbody RigidBody;
         public Collider Collider;
         public Animator Animator;

@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 267e1a2c4d6055b48871df57e26fdbb6, type: 3}
+  m_Name: LuaManager_LuaSolder_dataset
+  m_EditorClassIdentifier: DCS.Framework::DCS.Gameplay.MapDataset
+  MapName: LuaManager_LuaSolder
+  Encounters:
+  - Id: 25114
+    Key: 
+    ScriptPath: 
+    Enabled: 1
+    AutoStart: 0
+    FactsJson: '{}'
+  StrongPoints: []
+  Regions: []
+  Triggers: []
+  NavigationSurfaces: []
+  TraversalLinks: []
+  PatrolPaths: []
+  PatrolPoints: []
+  Posts: []
+  Spawners: []
+  Locators: []
+  SpatialProxies: []
+  Spheres: []
+  Boxes: []
+  Cylinders: []
+  Polygons: []
+  PolygonPoints: []

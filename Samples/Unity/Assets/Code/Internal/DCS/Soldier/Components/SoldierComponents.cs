@@ -74,5 +74,6 @@ namespace DCS.Soldiers
     {
         public int RosterIndex { get; set; }
         public int ViewId;
+        public Actor Actor;
     }
 }

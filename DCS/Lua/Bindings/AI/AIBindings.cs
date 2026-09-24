@@ -26,39 +26,40 @@ namespace DCS.Lua.Bindings
             int role = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
             int strongPointId = (int)LuaNative.lua_tointegerx(L, 4, IntPtr.Zero);
 
-            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            var domain = DomainRegistry.Get(chainId);
+            if (domain == null)
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] SetCombatRole: domain id {chainId} not found");
+
+            HostChain chain = domain.HostChain;
             if (chain == null)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] SetCombatRole: domain {chainId} has no HostChain");
 
             if (!TryGetHost(hostId, out Host host))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] SetCombatRole: invalid host {hostId}");
+
+            if (role < (int)CombatRole.None || role > (int)CombatRole.Flanker)
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] SetCombatRole: role {role} out of range [0, {(int)CombatRole.Flanker}]");
 
             // Reuse existing component if present, else allocate.
-            Handle handle;
             var pool = ComponentRegistry.GetPool<CombatRoleComponent>();
+            if (pool == null)
+                return LuaNative.lua_error(L,
+                    "[AIBindings] SetCombatRole: CombatRoleComponent pool is null");
+
             ChainNode existing = chain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);
 
-            if (!existing.IsNull)
-            {
-                handle = existing.Component;
-            }
-            else
-            {
-                handle = pool.Allocate(host, chain);
-            }
+            Handle handle = !existing.IsNull
+                ? existing.Component
+                : pool.Allocate(host, chain);
 
             if (handle.IsNull)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] SetCombatRole: failed to allocate CombatRoleComponent for host {hostId}");
 
             ref CombatRoleComponent comp = ref pool.ResolveHandle(handle);
             comp.Role = (CombatRole)role;
@@ -73,17 +74,25 @@ namespace DCS.Lua.Bindings
         //  AI.GetCombatRole(chainId, hostId) -> role, strongPointId  (or nil)
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetCombatRole(IntPtr L)
         {
             int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
 
-            HostChain chain = DomainRegistry.Get(chainId).HostChain;
-            if (chain == null || !TryGetHost(hostId, out Host host))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+            var domain = DomainRegistry.Get(chainId);
+            if (domain == null)
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] GetCombatRole: domain id {chainId} not found");
+
+            HostChain chain = domain.HostChain;
+            if (chain == null)
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] GetCombatRole: domain {chainId} has no HostChain");
+
+            if (!TryGetHost(hostId, out Host host))
+                return LuaNative.lua_error(L,
+                    $"[AIBindings] GetCombatRole: invalid host {hostId}");
 
             ChainNode node = chain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);

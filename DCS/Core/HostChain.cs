@@ -65,7 +65,7 @@ namespace DCS.Core
     public class HostChain
     {
         /// <summary>Maximum number of concurrently existing components.</summary>
-        public const int MaxComponents = 500000;
+        public const int MaxComponents = DcsConfig.MaxChainNodes;
 
 
         /// <summary>Array of all chain nodes.</summary>
@@ -126,7 +126,10 @@ namespace DCS.Core
             if (Contains(host, component, typeId)) return;
 
             if (_firstFree == -1)
-                throw new System.Exception("DCS Error: Out of memory for ChainNode!");
+                throw new System.Exception(
+                    $"[HostChain] DCS Error: Out of memory for ChainNode! " +
+                    $"MaxChainNodes={MaxComponents} exceeded. " +
+                    $"Check DcsConfig.MaxComponentsPerHost.");
 
             int allocatedNodeIndex = _firstFree;
             _firstFree = _components[allocatedNodeIndex].Next;

@@ -36,7 +36,13 @@ namespace DCS.Lua
             _instance = this;
             Application.runInBackground = true;
             DontDestroyOnLoad(gameObject);
+
             ComponentRegistry.InitializeAllPools();
+
+            // Гарантируем наличие доменов даже если GameBootstrap.Init не отработал
+            // (например, в тестах или при ручном создании LuaManager).
+            DomainRegistry.Create("Default");
+            DomainRegistry.Create("GameWorld");
         }
 
         private void Start()

@@ -62,26 +62,21 @@ namespace DCS.Soldiers
             camForward.y = 0f; camForward.Normalize();
             camRight.y = 0f; camRight.Normalize();
 
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var inputPool = ComponentRegistry.GetPool<InputComponent>();
+            for (int i = 0; i < inputPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref InputComponent input = ref inputPool.Components[i];
+                Host host = inputPool.Roster[input.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
 
-                Handle hInput = DCSystem.Get<InputComponent>(host, chain);
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
                 Handle hVel = DCSystem.Get<VelocityComponent>(host, chain);
                 Handle hLoco = DCSystem.Get<LocomotionComponent>(host, chain);
-                if (hInput.IsNull || hPos.IsNull || hVel.IsNull || hLoco.IsNull) continue;
+                if (hPos.IsNull || hVel.IsNull || hLoco.IsNull) continue;
 
-                ref InputComponent input = ref DCSystem.ResolveHandle<InputComponent>(hInput);
                 ref PositionComponent pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
                 ref VelocityComponent vel = ref DCSystem.ResolveHandle<VelocityComponent>(hVel);
                 ref LocomotionComponent loco = ref DCSystem.ResolveHandle<LocomotionComponent>(hLoco);
@@ -117,32 +112,26 @@ namespace DCS.Soldiers
         static readonly int PARAM_LOCOMOTION = Animator.StringToHash("Locomotion");
         static readonly int PARAM_COMBAT = Animator.StringToHash("Combat");
 
-        public static void Update(HostChain chain, Animator[] animators)
+        public static void Update(HostChain chain)
         {
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
+            for (int i = 0; i < viewPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref ViewComponent view = ref viewPool.Components[i];
+                Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
 
-                Handle hView = DCSystem.Get<ViewComponent>(host, chain);
                 Handle hCombat = DCSystem.Get<CombatStateComponent>(host, chain);
                 Handle hLoco = DCSystem.Get<LocomotionComponent>(host, chain);
-                if (hView.IsNull || hCombat.IsNull || hLoco.IsNull) continue;
+                if (hCombat.IsNull || hLoco.IsNull) continue;
 
-                ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
                 ref CombatStateComponent combat = ref DCSystem.ResolveHandle<CombatStateComponent>(hCombat);
                 ref LocomotionComponent loco = ref DCSystem.ResolveHandle<LocomotionComponent>(hLoco);
 
-                if (view.ViewId < 0 || view.ViewId >= animators.Length) continue;
-                Animator animator = animators[view.ViewId];
+                Animator animator = view.Actor.Animator;
                 if (animator == null) continue;
 
                 animator.SetInteger(PARAM_LOCOMOTION, (int)loco.Value);
@@ -157,32 +146,26 @@ namespace DCS.Soldiers
 
     public static class TransformSyncSystem
     {
-        public static void Update(HostChain chain, Transform[] transforms)
+        public static void Update(HostChain chain)
         {
-            int count = HostManager.GlobalHosts.Length;
-            for (int i = 0; i < count; i++)
+            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
+            for (int i = 0; i < viewPool.Partition; i++)
             {
-                Host host = new Host
-                {
-                    Id = (ushort)i,
-                    Generation = HostManager.GlobalHosts[i].Generation
-                };
+                ref ViewComponent view = ref viewPool.Components[i];
+                Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
                 if (hTag.IsNull) continue;
 
-                Handle hView = DCSystem.Get<ViewComponent>(host, chain);
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
                 Handle hInp = DCSystem.Get<InputComponent>(host, chain);
-                if (hView.IsNull || hPos.IsNull || hInp.IsNull) continue;
+                if (hPos.IsNull || hInp.IsNull) continue;
 
-                ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
                 ref PositionComponent pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
                 ref InputComponent input = ref DCSystem.ResolveHandle<InputComponent>(hInp);
 
-                if (view.ViewId < 0 || view.ViewId >= transforms.Length) continue;
-                Transform t = transforms[view.ViewId];
+                Transform t = view.Actor.transform;
                 if (t == null) continue;
 
                 t.position = pos.Value;

@@ -15,26 +15,28 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  Camera.Find(chainId, name) -> packedHost | nil
+        //  Camera.Find(domainId, name) -> packedHost | nil
+        //  Запрос: «нет камеры с таким именем» — валидный nil.
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Find(IntPtr L)
         {
-            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
             string name = ReadString(L, 2);
 
             if (string.IsNullOrEmpty(name))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    "[CameraBindings] Find: name is empty");
 
-            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null)
+                return LuaNative.lua_error(L,
+                    $"[CameraBindings] Find: domain id {domainId} not found");
+
+            HostChain chain = domain.HostChain;
             if (chain == null)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[CameraBindings] Find: domain {domainId} has no HostChain");
 
             if (CameraSystem.TryFindByName(name, chain, out Host host))
             {
@@ -47,19 +49,23 @@ namespace DCS.Lua.Bindings
         }
 
         // ------------------------------------------------------------
-        //  Camera.GetMain(chainId) -> packedHost | nil
+        //  Camera.GetMain(domainId) -> packedHost | nil
+        //  Запрос: «нет главной камеры» — валидный nil.
         // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetMain(IntPtr L)
         {
-            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            int domainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
 
-            HostChain chain = DomainRegistry.Get(chainId).HostChain;
+            var domain = DomainRegistry.Get(domainId);
+            if (domain == null)
+                return LuaNative.lua_error(L,
+                    $"[CameraBindings] GetMain: domain id {domainId} not found");
+
+            HostChain chain = domain.HostChain;
             if (chain == null)
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+                return LuaNative.lua_error(L,
+                    $"[CameraBindings] GetMain: domain {domainId} has no HostChain");
 
             if (CameraSystem.TryFindMain(chain, out Host host))
             {

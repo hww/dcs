@@ -219,6 +219,64 @@ SphereCollider:
   m_CorrespondingSourceObject: {fileID: 1119684809831326081, guid: 2354bee90a3a33142b514ec543c80c5b, type: 3}
   m_PrefabInstance: {fileID: 508432690}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &728692432
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 728692434}
+  - component: {fileID: 728692433}
+  m_Layer: 0
+  m_Name: Encounter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &728692433
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 728692432}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e40dd6602e86754458964d4d21a2a736, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Gameplay.Encounter
+  _host:
+    Id: 0
+    Generation: 0
+  _key: 
+  _scriptPath: 
+  _enabled: 1
+  _autoStart: 0
+  Facts:
+    jsonData: '{
+
+      
+
+      }'
+  FactsLifetime: 0
+--- !u!4 &728692434
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 728692432}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.97037, y: -0, z: -5.46072}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &772547322
 GameObject:
   m_ObjectHideFlags: 0
@@ -730,14 +788,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1854508959}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5efc04614d4f59840abc920f00903e99, type: 3}
+  m_Script: {fileID: 11500000, guid: 471728c3bee3442438f845ae6842f24d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: DCS.Framework::DCS.Core.HostInspectorGizmo
-  OffsetY: 2.5
-  FontSize: 12
-  TextColor: {r: 1, g: 1, b: 1, a: 1}
-  AlwaysVisible: 0
-  MaxDistance: 30
+  hostChain: 0
+  info: 
 --- !u!114 &1854508966
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -883,6 +938,7 @@ SceneRoots:
   - {fileID: 2066408636}
   - {fileID: 772547323}
   - {fileID: 1275694332}
+  - {fileID: 728692434}
   - {fileID: 1079006724}
   - {fileID: 5374512187824570916}
   - {fileID: 508432690}

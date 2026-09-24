@@ -45,6 +45,7 @@ namespace DCS.LuaSoldier
     {
         public int RosterIndex { get; set; }
         public int ViewId;
+        public Actor Actor;
     }
 
     /// <summary>Yaw/Pitch — куда смотрит солдат.</summary>

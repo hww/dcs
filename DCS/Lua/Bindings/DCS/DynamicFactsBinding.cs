@@ -23,28 +23,28 @@ namespace DCS.Lua.Bindings
         {
             if (LuaNative.lua_type(L, 1) != LuaNative.LUA_TUSERDATA)
             {
-                LuaNative.luaL_error(L, "Expected DynamicFacts as first argument");
+                LuaNative.lua_error(L, "Expected DynamicFacts as first argument");
                 return null;
             }
 
             IntPtr ptr = LuaNative.lua_touserdata(L, 1);
             if (ptr == IntPtr.Zero)
             {
-                LuaNative.luaL_error(L, "Invalid userdata");
+                LuaNative.lua_error(L, "Invalid userdata");
                 return null;
             }
 
             GCHandle handle = GCHandle.FromIntPtr(Marshal.ReadIntPtr(ptr));
             if (!handle.IsAllocated)
             {
-                LuaNative.luaL_error(L, "Invalid DynamicFacts handle");
+                LuaNative.lua_error(L, "Invalid DynamicFacts handle");
                 return null;
             }
 
             DynamicFacts facts = handle.Target as DynamicFacts;
             if (facts == null)
             {
-                LuaNative.luaL_error(L, "Invalid DynamicFacts object");
+                LuaNative.lua_error(L, "Invalid DynamicFacts object");
                 return null;
             }
 
@@ -66,7 +66,7 @@ namespace DCS.Lua.Bindings
 
             string factName = GetFactName(L);
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.luaL_error(L, "Fact name required");
+                return LuaNative.lua_error(L, "Fact name required");
 
             if (!facts.GetFact(factName, L))
             {
@@ -86,7 +86,7 @@ namespace DCS.Lua.Bindings
 
             string factName = GetFactName(L);
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.luaL_error(L, "Fact name required");
+                return LuaNative.lua_error(L, "Fact name required");
 
             bool exists = facts.Contains(factName);
             bool pushed = facts.GetFact(factName, L);
@@ -108,7 +108,7 @@ namespace DCS.Lua.Bindings
 
             string factName = GetFactName(L);
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.luaL_error(L, "Fact name required");
+                return LuaNative.lua_error(L, "Fact name required");
 
             facts.SetFact(factName, L);
             return 0;

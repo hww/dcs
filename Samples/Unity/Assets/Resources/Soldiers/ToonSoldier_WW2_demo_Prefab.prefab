@@ -142,8 +142,7 @@ GameObject:
   m_Component:
   - component: {fileID: 432436}
   - component: {fileID: 9517976}
-  - component: {fileID: 2986552877897748951}
-  - component: {fileID: 5878159207142702756}
+  - component: {fileID: 6629121349550051425}
   m_Layer: 0
   m_Name: ToonSoldier_WW2_demo_Prefab
   m_TagString: Untagged
@@ -190,7 +189,7 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &2986552877897748951
+--- !u!114 &6629121349550051425
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -199,26 +198,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 111614}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3721ad901bee40943923c050eea39311, type: 3}
+  m_Script: {fileID: 11500000, guid: 0cf8b1e0d17ccb348a6fb9aebcf99df3, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SoldierLink
---- !u!114 &5878159207142702756
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 111614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5efc04614d4f59840abc920f00903e99, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DCS.Framework::DCS.Core.HostInspectorGizmo
-  OffsetY: 2.5
-  FontSize: 12
-  TextColor: {r: 1, g: 1, b: 1, a: 1}
-  AlwaysVisible: 0
-  MaxDistance: 30
+  m_EditorClassIdentifier: DCS.Framework::DCS.Core.Actor
+  _host:
+    Id: 0
+    Generation: 0
+  Transform: {fileID: 432436}
+  RigidBody: {fileID: 0}
+  Collider: {fileID: 0}
+  Animator: {fileID: 9517976}
+  ActorType: 0
+  Visual: {fileID: 111614}
+  LevelDatasetName: 
+  Spawner: {fileID: 0}
+  Facts:
+    jsonData: '{
+
+      
+
+      }'
+  FactsLifetime: 0
 --- !u!1 &120650
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,9 +1,10 @@
 using System;
 using System.Runtime.InteropServices;
-using DCS.Core;
-using DCS.Spatial;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using DCS.Spatial;
+using DCS.Core;
+
 namespace DCS.Lua.Bindings
 {
     /// <summary>World/map streaming API. Existing Map function names are preserved.</summary>
@@ -18,33 +19,60 @@ namespace DCS.Lua.Bindings
             LuaNative.lua_setglobal(L, "Map");
         }
 
+        // ------------------------------------------------------------
+        //  Map.Stream(mapName) -> bool
+        //  true  — загрузка запущена
+        //  false — уже идёт другая загрузка
+        //  Команда: пустое имя / нет runner'а — ошибка.
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_StreamMap(IntPtr L)
         {
             string mapName = ReadString(L, 1);
             if (string.IsNullOrEmpty(mapName))
-                return 0;
+                return LuaNative.lua_error(L,
+                    "[MapBindings] Stream: map name is empty");
 
             MonoBehaviour runner = SpatialRuntime.Instance;
-            if (runner != null)
-                DatasetLoader.StreamMapAsync(mapName, runner);
+            if (runner == null)
+                return LuaNative.lua_error(L,
+                    "[MapBindings] Stream: SpatialRuntime instance not found");
 
-            return 0;
+            if (DatasetLoader.IsLoading)
+            {
+                // Уже грузим что-то другое — не ошибка, просто отказ.
+                LuaNative.lua_pushboolean(L, 0);
+                return 1;
+            }
+
+            DatasetLoader.StreamMapAsync(mapName, runner);
+            LuaNative.lua_pushboolean(L, 1);
+            return 1;
         }
 
+        // ------------------------------------------------------------
+        //  Map.Unload() -> void
+        //  Если карты нет — тихий no-op (это валидный сценарий).
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_UnloadMap(IntPtr L)
         {
             string currentMap = DatasetLoader.CurrentMapName;
-            if (!string.IsNullOrEmpty(currentMap))
-            {
-                DatasetLoader.UnloadMapDataset();
-                SceneManager.UnloadSceneAsync(currentMap);
-            }
+            if (string.IsNullOrEmpty(currentMap))
+                return 0;
+
+            DatasetLoader.UnloadMapDataset();
+            var op = SceneManager.UnloadSceneAsync(currentMap);
+            if (op == null)
+                Debug.LogWarning(
+                    $"[MapBindings] Unload: scene '{currentMap}' is not loaded additively");
 
             return 0;
         }
 
+        // ------------------------------------------------------------
+        //  Map.GetStatus() -> state, mapName, progressPercent
+        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetMapStatus(IntPtr L)
         {
