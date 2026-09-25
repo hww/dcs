@@ -6,6 +6,7 @@ namespace DCS.Core
     /// </summary>
     public sealed class Domain
     {
+        public const int DefaultId = 0;
         public int Id { get; }
         public string Name { get; }
 

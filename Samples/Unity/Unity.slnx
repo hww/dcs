@@ -1,6 +1,6 @@
 ﻿<Solution>
   <Project Path="DCS.Framework.csproj" />
-  <Project Path="DCS.Tests.PlayMode.csproj" />
   <Project Path="DCS.Examples.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="DCS.Tests.PlayMode.csproj" />
 </Solution>

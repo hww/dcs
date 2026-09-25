@@ -17,8 +17,6 @@ namespace DCS.Lua.Bindings
             LuaBindings.RegisterGlobalFunction(L, Lua_SetFact, "facts_set");
         }
 
-
-
         private static DynamicFacts GetFacts(IntPtr L)
         {
             if (LuaNative.lua_type(L, 1) != LuaNative.LUA_TUSERDATA)

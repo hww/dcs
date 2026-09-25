@@ -80,12 +80,7 @@ namespace DCS.Core
             ref T ev = ref Components[denseIndex];
             ev = default;
             ev.NamespaceMask = namespaceMask;
-
-            // Set RosterIndex if the event type implements IDcsComponent
-            if (ev is IComponent dcsComp)
-            {
-                dcsComp.RosterIndex = rosterIndex;
-            }
+            ev.RosterIndex = rosterIndex;
 
             // Create handle and add to host chain
             Handle handle = new Handle

@@ -132,5 +132,34 @@ namespace DCS.Core
             sb.AppendLine($"[EntityActor Details] ActorType: {ActorType}, Physics: {RigidBody != null}, " +
                      $"Collider: {Collider != null}, Visual: {Visual != null}");
         }
+
+
+        public override void Birth()
+        {
+            base.Birth();
+
+            // Actor кэширует свои специфичные ссылки
+            if (Transform == null) Transform = _cachedTransform;
+            if (RigidBody == null) RigidBody = GetComponent<Rigidbody>();
+            if (Collider == null) Collider = GetComponent<Collider>();
+            if (Animator == null) Animator = _cachedAnimator;
+
+            if (Visual == null)
+            {
+                var visualT = transform.Find("Visual");
+                if (visualT != null) Visual = visualT.gameObject;
+            }
+        }
+
+        public override void Kill()
+        {
+            Transform = null;
+            RigidBody = null;
+            Collider = null;
+            Animator = null;
+            Visual = null;
+
+            base.Kill();
+        }
     }
 }

@@ -93,9 +93,9 @@ namespace DCS.Core
                 yield break;
             }
 
-            if (GameplayRuntime.Instance != null)
+            if (WorldRuntime.Instance != null)
             {
-                GameplayRuntime.Instance.Load(_currentDataset);
+                WorldRuntime.Instance.Load(_currentDataset);
             }
             else
             {
@@ -116,9 +116,9 @@ namespace DCS.Core
         {
             if (_currentDataset == null) return;
 
-            if (GameplayRuntime.Instance != null)
+            if (WorldRuntime.Instance != null)
             {
-                GameplayRuntime.Instance.Clear();
+                WorldRuntime.Instance.Clear();
             }
 
             UnregisterEntitiesFromPools(_currentDataset);

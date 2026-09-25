@@ -1,7 +1,7 @@
-using System;
-using System.Runtime.InteropServices;
 using DCS.Core;
 using DCS.Gameplay;
+using System;
+using System.Runtime.InteropServices;
 
 namespace DCS.Lua.Bindings
 {
@@ -9,57 +9,51 @@ namespace DCS.Lua.Bindings
     {
         public static void Register(IntPtr L)
         {
-            LuaNative.lua_newtable(L);
-            LuaBindings.RegisterMethod(L, Lua_SetCombatRole, "SetCombatRole");
-            LuaBindings.RegisterMethod(L, Lua_GetCombatRole, "GetCombatRole");
-            LuaNative.lua_setglobal(L, "AI");
+            LuaBindings.RegisterNamespace(L, "AI", (state, tableIndex) =>
+            {
+                LuaBindings.RegisterMethod(state, Lua_SetCombatRole, tableIndex, "SetCombatRole");
+                LuaBindings.RegisterMethod(state, Lua_GetCombatRole, tableIndex, "GetCombatRole");
+            });
         }
 
-        // ------------------------------------------------------------
-        //  AI.SetCombatRole(chainId, hostId, role, strongPointId) -> handle
-        // ------------------------------------------------------------
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetCombatRole(IntPtr L)
         {
-            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
-            int role = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
-            int strongPointId = (int)LuaNative.lua_tointegerx(L, 4, IntPtr.Zero);
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
-            var domain = DomainRegistry.Get(chainId);
-            if (domain == null)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] SetCombatRole: domain id {chainId} not found");
+            int hostId = LuaArgumentReader.ReadInt(L, 2);
+            int role = LuaArgumentReader.ReadInt(L, 3);
+            int strongPointId = LuaArgumentReader.ReadInt(L, 4);
 
-            HostChain chain = domain.HostChain;
-            if (chain == null)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] SetCombatRole: domain {chainId} has no HostChain");
+            if (!HostResolver.TryGetHost(hostId, out Host host))
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
-            if (!TryGetHost(hostId, out Host host))
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] SetCombatRole: invalid host {hostId}");
-
-            if (role < (int)CombatRole.None || role > (int)CombatRole.Flanker)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] SetCombatRole: role {role} out of range [0, {(int)CombatRole.Flanker}]");
-
-            // Reuse existing component if present, else allocate.
             var pool = ComponentRegistry.GetPool<CombatRoleComponent>();
-            if (pool == null)
-                return LuaNative.lua_error(L,
-                    "[AIBindings] SetCombatRole: CombatRoleComponent pool is null");
-
-            ChainNode existing = chain.GetTypedHandle(
+            ChainNode existing = domain.HostChain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);
 
-            Handle handle = !existing.IsNull
-                ? existing.Component
-                : pool.Allocate(host, chain);
+            Handle handle;
+            if (!existing.IsNull)
+            {
+                handle = existing.Component;
+            }
+            else
+            {
+                handle = pool.Allocate(host, domain.HostChain);
+            }
 
             if (handle.IsNull)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] SetCombatRole: failed to allocate CombatRoleComponent for host {hostId}");
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
             ref CombatRoleComponent comp = ref pool.ResolveHandle(handle);
             comp.Role = (CombatRole)role;
@@ -70,31 +64,24 @@ namespace DCS.Lua.Bindings
             return 1;
         }
 
-        // ------------------------------------------------------------
-        //  AI.GetCombatRole(chainId, hostId) -> role, strongPointId  (or nil)
-        // ------------------------------------------------------------
-        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetCombatRole(IntPtr L)
         {
-            int chainId = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int hostId = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
-            var domain = DomainRegistry.Get(chainId);
-            if (domain == null)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] GetCombatRole: domain id {chainId} not found");
+            int hostId = LuaArgumentReader.ReadInt(L, 2);
 
-            HostChain chain = domain.HostChain;
-            if (chain == null)
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] GetCombatRole: domain {chainId} has no HostChain");
+            if (!HostResolver.TryGetHost(hostId, out Host host))
+            {
+                LuaNative.lua_pushnil(L);
+                return 1;
+            }
 
-            if (!TryGetHost(hostId, out Host host))
-                return LuaNative.lua_error(L,
-                    $"[AIBindings] GetCombatRole: invalid host {hostId}");
-
-            ChainNode node = chain.GetTypedHandle(
+            ChainNode node = domain.HostChain.GetTypedHandle(
                 host, ComponentType<CombatRoleComponent>.Id);
 
             if (node.IsNull)
@@ -109,16 +96,6 @@ namespace DCS.Lua.Bindings
             LuaNative.lua_pushinteger(L, (int)comp.Role);
             LuaNative.lua_pushinteger(L, comp.StrongPointId);
             return 2;
-        }
-
-        private static bool TryGetHost(int hostId, out Host host)
-        {
-            host = default;
-            if (hostId < 0 || hostId >= HostManager.GlobalHosts.Length)
-                return false;
-            ref HostData data = ref HostManager.GlobalHosts[hostId];
-            host = new Host { Id = (ushort)hostId, Generation = data.Generation };
-            return HostManager.IsValid(host);
         }
     }
 }

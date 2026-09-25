@@ -61,7 +61,7 @@ namespace DCS.Core
     ///
     /// Thread Safety: Not thread-safe. All operations must be on the main thread.
     /// </remarks>
-    public class ComponentPool<T> : IComponentPool, IFieldAccessForIndex where T : struct
+    public class ComponentPool<T> : IComponentPool, IFieldAccessForIndex where T : struct, IComponent
     {
         // ============================================================
         //  PUBLIC STATE
@@ -236,9 +236,7 @@ namespace DCS.Core
             // Initialize component
             ref T comp = ref Components[denseIndex];
             comp = default;
-
-            if (comp is IComponent dcsComp)
-                dcsComp.RosterIndex = rosterIndex;
+            comp.RosterIndex = rosterIndex;
 
             if (prius != null && comp is IInitializable initializable)
                 initializable.Init(prius);
@@ -303,13 +301,9 @@ namespace DCS.Core
             {
                 // Move the last component into the deleted slot
                 Components[denseIndexToDelete] = Components[denseIndexToMove];
-
                 // Update the roster to point to the new dense index
-                if (Components[denseIndexToDelete] is IComponent movingComp)
-                {
-                    int movingRosterIndex = movingComp.RosterIndex;
-                    Roster[movingRosterIndex].Index = (System.UInt16)denseIndexToDelete;
-                }
+                int movingRosterIndex = Components[denseIndexToDelete].RosterIndex;
+                Roster[movingRosterIndex].Index = (System.UInt16)denseIndexToDelete;
             }
 
             handle = default;

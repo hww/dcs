@@ -51,7 +51,6 @@ namespace DCS.Lua
         //  TABLES
         // ============================================================
 
-
         [DllImport(LUA_DLL, EntryPoint = "lua_createtable")]
         public static extern void lua_createtable(IntPtr L, int narr, int nrec);
 
@@ -62,6 +61,16 @@ namespace DCS.Lua
 
         [DllImport(LUA_DLL, EntryPoint = "lua_gettable")]
         public static extern void lua_gettable(IntPtr L, int idx);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_rawseti")]
+        public static extern void lua_rawseti(IntPtr L, int idx, long n);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_rawgeti")]
+        public static extern int lua_rawgeti(IntPtr L, int idx, long n);
+
+        // ============================================================
+        //  FIELD OPERATIONS
+        // ============================================================
 
         [DllImport(LUA_DLL, EntryPoint = "lua_setfield")]
         public static extern void lua_setfield(IntPtr L, int idx, string k);
@@ -82,12 +91,8 @@ namespace DCS.Lua
         [DllImport(LUA_DLL, EntryPoint = "lua_pushvalue")]
         public static extern void lua_pushvalue(IntPtr L, int idx);
 
-        [DllImport(LUA_DLL, EntryPoint = "lua_remove")]
-        public static extern void lua_remove(IntPtr L, int idx);
+   
 
-        //[DllImport(LUA_DLL, EntryPoint = "lua_pop")]
-        //public static extern void lua_pop(IntPtr L, int n);
-        
         // ============================================================
         //  PUSH VALUES
         // ============================================================
@@ -154,6 +159,34 @@ namespace DCS.Lua
             byte[] buf = new byte[n];
             Marshal.Copy(p, buf, 0, n);
             return Encoding.UTF8.GetString(buf);
+        }
+        // ============================================================
+        // Inserts
+        // ============================================================
+        /// <summary>
+        /// Lua 5.4 macro: lua_settop(L, -(n)-1).
+        /// Not exported from the DLL because it is a macro in lua.h.
+        /// </summary>
+        public static void lua_pop(IntPtr L, int n)
+        {
+            lua_settop(L, -n - 1);
+        }
+        /// <summary>
+        /// Lua 5.4 macro: lua_rotate(L, idx, 1).
+        /// Not exported from the DLL because it is a macro in lua.h.
+        /// </summary>
+        public static void lua_insert(IntPtr L, int idx)
+        {
+            lua_rotate(L, idx, 1);
+        }
+        /// <summary>
+        /// Lua 5.4 macro: lua_rotate(L, idx, -1) + lua_pop(L, 1).
+        /// Not exported from the DLL because it is a macro in lua.h.
+        /// </summary>
+        public static void lua_remove(IntPtr L, int idx)
+        {
+            lua_rotate(L, idx, -1);
+            lua_pop(L, 1);
         }
         // ============================================================
         // SWAPS AND ROTATES

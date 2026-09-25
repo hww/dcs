@@ -1,3 +1,4 @@
+using DCS.Spatial;
 using System;
 using System.Text;
 
@@ -271,4 +272,51 @@ namespace DCS.Core
         public DynamicFacts Facts { get; }
         public EFactsLifetime FactsLifetime { get; }
     }
+
+
+    /// <summary>
+    /// Contract for any object that carries a Lua entry point configuration.
+    /// Not all BaseActor descendants need a valid Lua config — Locator, for
+    /// example, only exists as a searchable coordinate marker.
+    /// </summary>
+    public interface ILuaConfigurable
+    {
+        /// <summary>Lua entry point configuration. May be invalid (empty).</summary>
+        LuaConfig LuaConfig { get; }
+
+        /// <summary>True if the Lua config is valid and should be executed.</summary>
+        bool HasLuaConfig { get; }
+    }
+
+    /// <summary>
+    /// Опциональный интерфейс: если MonoBehaviour его реализует,
+    /// ViewService передаст ему контекст спавна перед Birth().
+    /// Позволяет актёру получить внешние зависимости без синглтонов.
+    /// </summary>
+    public interface IBirthContext
+    {
+        void SetContext(object context);
+    }
+
+
+    /// <summary>
+    /// Contract for any object that can be found via the actor registry.
+    /// Separated from ILuaConfigurable because search and Lua scripting
+    /// are orthogonal concerns.
+    /// </summary>
+    public interface ISearchable
+    {
+        /// <summary>Unique name used for lookup. Null or empty means not searchable by name.</ummary>
+        string SearchName { get; }
+
+        /// <summary>Semantic type used for type-filtered queries.</summary>
+        ESpatialObjectType ObjectType { get; }
+
+        /// <summary>Tags used for tag-filtered queries. Never null.</summary>
+        string[] SearchTags { get; }
+
+        /// <summary>True if this object can be found by at least one search criterion.</summary>
+        bool IsSearchable { get; }
+    }
+
 }

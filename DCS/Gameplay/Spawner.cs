@@ -21,8 +21,23 @@ namespace DCS.Core
 
         [Header("Spawn Conditions")]
         public ESpawnMode Mode = ESpawnMode.SpawnByCode;
-        public float radius = 10f;
-        public float deSpawnRadius = 12f;
+        public bool AutoSpawn = true;
+
+        [Header("Spawn Radii")]
+        [Tooltip("Дистанция загрузки графики")]
+        public float ActivationRadius = 50f;
+
+        [Tooltip("Дистанция запуска Lua-логики")]
+        public float EncounterRadius = 30f;
+
+        [Tooltip("Дистанция возврата в пул")]
+        public float DespawnRadius = 60f;
+
+        [Header("Spawn Setup")]
+        [Tooltip("Путь к префабу (Resources)")]
+        public string PrefabPath;
+
+        [Tooltip("Класс сущности (для совместимости с C#-логикой)")]
         public string entityClassToSpawn;
 
         // ============================================================
@@ -37,10 +52,10 @@ namespace DCS.Core
                     LuaNative.lua_pushinteger(L, (int)Mode);
                     break;
                 case "spawnRadius":
-                    LuaNative.lua_pushnumber(L, radius);
+                    LuaNative.lua_pushnumber(L, ActivationRadius);
                     break;
                 case "deSpawnRadius":
-                    LuaNative.lua_pushnumber(L, deSpawnRadius);
+                    LuaNative.lua_pushnumber(L, DespawnRadius);
                     break;
                 case "entityClass":
                     // Заменяем нативный метод на безопасный пуш (предполагается наличие хелпера)
@@ -66,12 +81,12 @@ namespace DCS.Core
                 // Жесткий API (TryGet) с автоматической генерацией ошибок для критичных данных
                 case "spawnRadius":
                     if (LuaStack.TryGetFloat(L, -1, fieldName, _host, out float _radius))
-                        radius = _radius;
+                        ActivationRadius = _radius;
                     break;
 
                 case "deSpawnRadius":
                     if (LuaStack.TryGetFloat(L, -1, fieldName, _host, out float _deRadius))
-                        deSpawnRadius = _deRadius;
+                        DespawnRadius = _deRadius;
                     break;
 
                 case "entityClass":
@@ -81,11 +96,11 @@ namespace DCS.Core
 
                 // Мягкий API (OrDefault): при некорректном типе из Lua безопасно откатываемся к дефолту
                 case "spawnMode":
-                    Mode = (ESpawnMode)LuaStack.GetIntOrDefault(L, -1, (int)ESpawnMode.SpawnByCode);
+                    Mode = (ESpawnMode)LuaArgumentReader.ReadInt(L, -1);
                     break;
 
                 case "factsLifetime":
-                    FactsLifetime = (EFactsLifetime)LuaStack.GetIntOrDefault(L, -1, (int)EFactsLifetime.Discard);
+                    FactsLifetime = (EFactsLifetime)LuaArgumentReader.ReadInt(L, -1); 
                     break;
 
                 default:
@@ -128,7 +143,7 @@ namespace DCS.Core
             string indent = new string(' ', (indentLevel + 1) * 4);
 
             sb.AppendLine($"{indent}[Spawner] Mode: {Mode} | Class: '{entityClassToSpawn}'");
-            sb.AppendLine($"{indent}Geometry -> Radius: {radius} | DeSpawnRadius: {deSpawnRadius}");
+            sb.AppendLine($"{indent}Geometry -> Radius: {ActivationRadius} | DeSpawnRadius: {DespawnRadius}");
             sb.AppendLine($"{indent}Save State -> Lifetime Scope: {FactsLifetime} | Has Facts: {Facts != null}");
         }
 
@@ -137,9 +152,9 @@ namespace DCS.Core
             if (Mode == ESpawnMode.AutoSpawn)
             {
                 Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(transform.position, radius);
+                Gizmos.DrawWireSphere(transform.position, ActivationRadius);
                 Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(transform.position, deSpawnRadius);
+                Gizmos.DrawWireSphere(transform.position, DespawnRadius);
             }
         }
     }

@@ -29,6 +29,16 @@ namespace DCS.Lua
             LuaNative.lua_pushcclosure(L, printPtr, 0);
             LuaNative.lua_setglobal(L, "print");
         }
+        public string ReadFile(string relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath)) return string.Empty;
+            string root = System.IO.Path.Combine(
+                UnityEngine.Application.streamingAssetsPath, "Lua");
+            string fullPath = System.IO.Path.Combine(root, relativePath);
+            return System.IO.File.Exists(fullPath)
+                ? System.IO.File.ReadAllText(fullPath)
+                : string.Empty;
+        }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Print(IntPtr L)
@@ -90,35 +100,52 @@ namespace DCS.Lua
             if (ptr == IntPtr.Zero) return "";
             return Marshal.PtrToStringAnsi(ptr);
         }
-
-        public void ExecuteString(string code, string chunkName = "chunk")
+        /// <summary>
+        /// Calls a Lua function at the top of the stack with N args.
+        /// On error logs Debug.LogError with full traceback.
+        /// Pops the function, args, and results.
+        /// Returns true if the call succeeded.
+        /// </summary>
+        public bool ProtectedCall(int nargs, int nresults = 0)
         {
-            int startTop = LuaNative.lua_gettop(L);
+            int topBefore = LuaNative.lua_gettop(L);
 
-            // Кладём traceback
             LuaNative.lua_getglobal(L, "debug");
             LuaNative.lua_getfield(L, -1, "traceback");
-            LuaNative.lua_rotate(L, -2, -1);   // <-- вместо lua_remove
-                                               // Стек: [..., traceback]
-            LuaNative.lua_settop(L, -2);
-            // Кладём chunk
+            LuaNative.lua_remove(L, -2);
+
+            int errfuncAbs = topBefore - nargs;
+            LuaNative.lua_insert(L, errfuncAbs);
+
+            int topNow = LuaNative.lua_gettop(L);
+            int errfuncRel = errfuncAbs - topNow - 1;
+
+            int status = LuaNative.lua_pcallk(L, nargs, nresults, errfuncRel, 0, IntPtr.Zero);
+
+            LuaNative.lua_remove(L, errfuncAbs);
+
+            if (status != 0)
+            {
+                string error = GetStringFromStack(-1);
+                Debug.LogError($"[Lua Error]\n{error}");
+                LuaNative.lua_settop(L, topBefore - nargs - 1);
+                return false;
+            }
+            return true;
+        }
+        public void ExecuteString(string code, string chunkName = "chunk")
+        {
+            int topBefore = LuaNative.lua_gettop(L);
+
             if (LuaNative.luaL_loadstring(L, code) != 0)
             {
                 string error = GetStringFromStack(-1);
                 Debug.LogError($"[Lua Syntax Error In {_stateName}] {error}");
-                LuaNative.lua_settop(L, startTop);
+                LuaNative.lua_settop(L, topBefore);
                 return;
             }
-            // Стек: [..., traceback, chunk]
 
-            // Вызов. Функция = chunk (top). msgh = traceback (-2).
-            if (LuaNative.lua_pcallk(L, 0, -1, -2, 0, IntPtr.Zero) != 0)
-            {
-                string error = GetStringFromStack(-1);
-                Debug.LogError($"[Lua Runtime Error In {_stateName}] {error}");
-            }
-
-            LuaNative.lua_settop(L, startTop);
+            ProtectedCall(0, LuaNative.LUA_MULTRET);
         }
 
         public void Dispose()

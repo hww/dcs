@@ -1,15 +1,31 @@
+using DCS.Core;
+using DCS.Lua.Bindings;
 using System;
 using System.IO;
 using UnityEngine;
-using DCS.Core;
-using DCS.Lua.Bindings;
 
 namespace DCS.Lua
 {
-    public class LuaManager : MonoBehaviour
+    /// <summary>
+    /// Global Lua VM. Self-creating singleton: first access to Instance
+    /// builds the GameObject and runs full initialization synchronously.
+    /// </summary>
+    public sealed class LuaManager : MonoBehaviour
     {
         private static LuaManager _instance;
-        public static LuaManager Instance => _instance;
+
+        public static LuaManager Instance
+        {
+            get
+            {
+                if (_instance != null) return _instance;
+
+                var go = new GameObject("[LuaManager]");
+                _instance = go.AddComponent<LuaManager>();
+                _instance.Initialize();
+                return _instance;
+            }
+        }
 
         private LuaStateWrapper _globalLuaState;
         public IntPtr MainState => _globalLuaState != null ? _globalLuaState.L : IntPtr.Zero;
@@ -17,53 +33,32 @@ namespace DCS.Lua
         private string LuaRootPath =>
             Path.Combine(Application.streamingAssetsPath, "Lua").Replace("\\", "/");
 
-
         private LuaTcpServer _replServer;
-        /// <summary>
-        /// Делегат регистрации биндингов. Игра назначает свой.
-        /// Если не назначен — используется базовый LuaBindings.RegisterAll.
-        /// </summary>
-        public static System.Action<IntPtr> RegisterBindingsCallback;
+        public static Action<IntPtr> RegisterBindingsCallback;
 
+        private bool _initialized;
 
-        void Awake()
+        // No Awake, no Start. Everything happens in Initialize().
+
+        private void Initialize()
         {
-            if (_instance != null && _instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            _instance = this;
+            if (_initialized) return;
+            _initialized = true;
+
             Application.runInBackground = true;
             DontDestroyOnLoad(gameObject);
 
             ComponentRegistry.InitializeAllPools();
+            DomainRegistry.EnsureDefault();
 
-            // Гарантируем наличие доменов даже если GameBootstrap.Init не отработал
-            // (например, в тестах или при ручном создании LuaManager).
-            DomainRegistry.Create("Default");
-            DomainRegistry.Create("GameWorld");
-        }
-
-        private void Start()
-        {
-            InitializeGlobalEngine();
-        }
-
-        private void InitializeGlobalEngine()
-        {
             try
             {
-                Debug.Log("[LuaManager] Регистрация глобальной виртуальной машины...");
+                Debug.Log("[LuaManager] Registering global VM...");
                 _globalLuaState = new LuaStateWrapper("GlobalEngine");
                 IntPtr L = _globalLuaState.L;
 
-                // System bindings
                 LuaBindings.RegisterAll(L);
-                
-                // The game bindings
-                if (RegisterBindingsCallback != null)
-                    RegisterBindingsCallback(L);
+                RegisterBindingsCallback?.Invoke(L);
 
                 string bootstrapPath = $"{LuaRootPath}/Core/bootstrap.lua";
                 if (File.Exists(bootstrapPath))
@@ -73,73 +68,86 @@ namespace DCS.Lua
                 }
                 else
                 {
-                    Debug.LogError($"[LuaManager] Bootstrap-файл не найден: {bootstrapPath}");
+                    Debug.LogError($"[LuaManager] Bootstrap file not found: {bootstrapPath}");
                 }
 
                 _replServer = new LuaTcpServer(L, 49155);
                 _replServer.StartServer();
-                Debug.Log("[LuaManager] Инициализация ядра и nREPL полностью завершена.");
 
+                Debug.Log("[LuaManager] Core and nREPL initialized.");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LuaManager] Ошибка старта скриптового ядра: {e.Message}");
+                Debug.LogError($"[LuaManager] Failed to start script engine:\n{e}");
             }
         }
 
-        // ------------------------------------------------------------
-        //  NEW: per-frame Lua tick. Calls DCS_Global_FrameUpdate()
-        //  which iterates LuaEntitiesRegistry and calls entity:Update().
-        // ------------------------------------------------------------
         void Update()
         {
             if (_globalLuaState == null) return;
-
             IntPtr L = _globalLuaState.L;
 
             _replServer?.Tick();
 
+            int topBefore = LuaNative.lua_gettop(L);
             LuaNative.lua_getglobal(L, "DCS_Global_FrameUpdate");
             if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
             {
-                if (LuaNative.lua_pcallk(L, 0, 0, 0, 0, IntPtr.Zero) != 0)
-                {
-                    string error = _globalLuaState.GetStringFromStack(-1);
-                    Debug.LogError($"[Lua] FrameUpdate error: {error}");
-                    LuaNative.lua_settop(L, -2);
-                }
+                _globalLuaState.ProtectedCall(0, 0);
             }
             else
             {
-                // Not a function (or nil) — pop it to keep the stack clean.
-                LuaNative.lua_settop(L, -2);
+                LuaNative.lua_settop(L, topBefore);
             }
+        }
+
+        public void CallGlobal(string functionName)
+        {
+            if (_globalLuaState == null || string.IsNullOrEmpty(functionName)) return;
+            IntPtr L = _globalLuaState.L;
+
+            int topBefore = LuaNative.lua_gettop(L);
+            LuaNative.lua_getglobal(L, functionName);
+            if (LuaNative.lua_type(L, -1) != LuaNative.LUA_TFUNCTION)
+            {
+                LuaNative.lua_settop(L, topBefore);
+                return;
+            }
+            _globalLuaState.ProtectedCall(0, 0);
+        }
+
+        public void CallGlobal(string functionName, int arg)
+        {
+            if (_globalLuaState == null || string.IsNullOrEmpty(functionName)) return;
+            IntPtr L = _globalLuaState.L;
+
+            int topBefore = LuaNative.lua_gettop(L);
+            LuaNative.lua_getglobal(L, functionName);
+            if (LuaNative.lua_type(L, -1) != LuaNative.LUA_TFUNCTION)
+            {
+                LuaNative.lua_settop(L, topBefore);
+                return;
+            }
+            LuaNative.lua_pushinteger(L, arg);
+            _globalLuaState.ProtectedCall(1, 0);
         }
 
         public static void DeliverEventToLua(int hostId, int eventTypeId, int packedHandle)
         {
             if (_instance == null || _instance._globalLuaState == null) return;
-
             IntPtr L = _instance._globalLuaState.L;
 
+            int topBefore = LuaNative.lua_gettop(L);
             LuaNative.lua_getglobal(L, "DCS_Global_EventRouter");
-            if (LuaNative.lua_type(L, -1) == LuaNative.LUA_TFUNCTION)
+            if (LuaNative.lua_type(L, -1) != LuaNative.LUA_TFUNCTION)
             {
-                LuaNative.lua_pushinteger(L, hostId);
-                LuaNative.lua_pushinteger(L, eventTypeId);
-                LuaNative.lua_pushinteger(L, packedHandle);
-
-                if (LuaNative.lua_pcallk(L, 3, 0, 0, 0, IntPtr.Zero) != 0)
-                {
-                    string error = _instance._globalLuaState.GetStringFromStack(-1);
-                    Debug.LogError($"[Lua] Event router error: {error}");
-                    LuaNative.lua_settop(L, -2);
-                }
+                LuaNative.lua_settop(L, topBefore);
+                return;
             }
-            else
-            {
-                LuaNative.lua_settop(L, -2);
-            }
+            LuaNative.lua_pushinteger(L, hostId);
+            LuaNative.lua_pushinteger(L, eventTypeId);
+            LuaNative.lua_pushinteger(L, packedHandle);
+            _instance._globalLuaState.ProtectedCall(3, 0);
         }
 
         public string ReadScriptFile(string relativePath)
@@ -150,6 +158,7 @@ namespace DCS.Lua
 
         void OnDestroy()
         {
+            if (_instance == this) _instance = null;
             _replServer?.StopServer();
             _globalLuaState?.Dispose();
         }

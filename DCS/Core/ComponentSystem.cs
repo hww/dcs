@@ -39,7 +39,7 @@ namespace DCS.Core
         /// This is O(N) where N is the number of components of the host.
         /// Use this for accessing singleton components on a host.
         /// </remarks>
-        public static Handle Get<T>(Host hostHandle, HostChain chain) where T : struct
+        public static Handle Get<T>(Host hostHandle, HostChain chain) where T : struct, IComponent
         {
             ChainNode typed = chain.GetTypedHandle(hostHandle, ComponentType<T>.Id);
             if (typed.Component.Id == 0 && typed.Component.Generation == 0)
@@ -54,7 +54,7 @@ namespace DCS.Core
         /// <param name="hostHandle">Host that owns the component.</param>
         /// <param name="chain">Host chain manager.</param>
         /// <returns>Handle to the allocated component.</returns>
-        public static Handle Allocate<T>(Host hostHandle, HostChain chain) where T : struct
+        public static Handle Allocate<T>(Host hostHandle, HostChain chain) where T : struct, IComponent
         {
             return ComponentRegistry.GetPool<T>().Allocate(hostHandle, chain);
         }
@@ -73,7 +73,7 @@ namespace DCS.Core
         /// Performance: O(1) — single array lookup + generation check.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T ResolveHandle<T>(Handle handle) where T : struct
+        public static ref T ResolveHandle<T>(Handle handle) where T : struct, IComponent
         {
             return ref ComponentRegistry.GetPool<T>().ResolveHandle(handle);
         }
@@ -85,7 +85,7 @@ namespace DCS.Core
         /// <param name="hostHandle">Host that owns the component.</param>
         /// <param name="chain">Host chain manager.</param>
         /// <param name="handle">Handle to the component to free.</param>
-        public static void Free<T>(Host hostHandle, HostChain chain, ref Handle handle) where T : struct
+        public static void Free<T>(Host hostHandle, HostChain chain, ref Handle handle) where T : struct, IComponent
         {
             ComponentRegistry.GetPool<T>().Free(hostHandle, chain, ref handle);
         }

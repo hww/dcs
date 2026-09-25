@@ -1,52 +1,48 @@
 using DCS.Core;
+using DCS.Lua.Bindings;
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
-
 namespace DCS.Lua
 {
+    /// <summary>
+    /// Isolated Lua state for a single location/zone.
+    /// Provides only Zone.SetFact; no global DCS bindings.
+    /// </summary>
     public class ScriptContext : IDisposable
     {
         private readonly LuaStateWrapper _lua;
         private readonly string _zoneName;
-        private readonly Func<string, BaseFacts> _entityRegistryLookup;
+
+        // Static lookup to avoid capturing `this` in the delegate.
+        private static Func<string, BaseFacts> _entityRegistryLookup;
 
         public ScriptContext(string zoneName, Func<string, BaseFacts> registryLookup)
         {
             _zoneName = zoneName;
             _entityRegistryLookup = registryLookup;
             _lua = new LuaStateWrapper(zoneName);
-
             RegisterZoneAPI();
         }
 
         private void RegisterZoneAPI()
         {
             IntPtr L = _lua.L;
-
-            // Create local zone isolated table namespace
-            LuaNative.lua_newtable(L);
-
-            LuaNative.lua_pushstring(L, "SetFact");
-            IntPtr setFactPtr = Marshal.GetFunctionPointerForDelegate((Func<IntPtr, int>)Lua_SetFact);
-            LuaNative.lua_pushcclosure(L, setFactPtr, 0);
-            LuaNative.lua_settable(L, -3);
-
-            LuaNative.lua_setglobal(L, "Zone");
+            LuaBindings.RegisterNamespace(L, "Zone", (state, tableIndex) =>
+            {
+                LuaBindings.RegisterMethod(state, Lua_SetFact, tableIndex, "SetFact");
+            });
         }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private int Lua_SetFact(IntPtr L)
+        private static int Lua_SetFact(IntPtr L)
         {
-            string entityName = Marshal.PtrToStringAnsi(LuaNative.lua_tolstring(L, 1, IntPtr.Zero));
-            string factName = Marshal.PtrToStringAnsi(LuaNative.lua_tolstring(L, 2, IntPtr.Zero));
-            bool value = LuaNative.lua_toboolean(L, 3) != 0;
+            string entityName = LuaArgumentReader.ReadString(L, 1);
+            string factName = LuaArgumentReader.ReadString(L, 2);
+            bool value = LuaArgumentReader.ReadBool(L, 3);
 
             BaseFacts facts = _entityRegistryLookup?.Invoke(entityName);
-            if (facts != null)
-            {
-                facts.Set<bool>(factName, value);
-            }
+            facts?.Set<bool>(factName, value);
             return 0;
         }
 

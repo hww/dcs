@@ -5,12 +5,32 @@ using UnityEngine;
 
 public class CameraActor : BaseActor
 {
+    [Header("Camera Registration")]
+    [SerializeField] private string _cameraName = "MainCamera";
+    [SerializeField] private bool _isMain = true;
+
+    public string CameraName => _cameraName;
+    public bool IsMain => _isMain;
+
     [Header("Entity Actor - Physics")]
     public Animator Animator;
 
     [Header("Entity Actor - Facts")]
     public DynamicFacts Facts;
     public EFactsLifetime FactsLifetime;
+
+    public override void Birth()
+    {
+        base.Birth();
+
+        if (Animator == null) Animator = _cachedAnimator;
+    }
+
+    public override void Kill()
+    {
+        Animator = null;
+        base.Kill();
+    }
 
     // ============================================================
     //  IFieldAccess Реализация для быстрого шлюза в Lua

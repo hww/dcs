@@ -52,7 +52,7 @@ namespace DCS.Core
         /// Complexity: O(1)
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetOrder<T>(int order) where T : struct
+        public void SetOrder<T>(int order) where T : struct, IComponent
         {
             int typeId = ComponentType<T>.Id;
             _orders[typeId] = order;
@@ -109,7 +109,7 @@ namespace DCS.Core
         /// </summary>
         /// <typeparam name="T">Component type.</typeparam>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveOrder<T>() where T : struct
+        public void RemoveOrder<T>() where T : struct, IComponent
         {
             int typeId = ComponentType<T>.Id;
             if (_orders.Remove(typeId))

@@ -36,6 +36,16 @@ namespace DCS.Core
             return _byName.TryGetValue(name, out int id) ? _byId[id] : null;
         }
 
+        /// <summary>
+        /// Ensures the default domain exists. Called once at engine startup.
+        /// </summary>
+        public static Domain EnsureDefault()
+        {
+            if (_byId.Count == Domain.DefaultId)
+                Create("default");
+            return _byId[Domain.DefaultId];
+        }
+
         public static int Count => _byId.Count;
 
         public static void Clear()
