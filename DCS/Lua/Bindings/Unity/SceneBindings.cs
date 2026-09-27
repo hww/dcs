@@ -168,7 +168,7 @@ namespace DCS.Lua
 
                 posPool.TryAllocate(host, out _);
                 ref var pos = ref posPool.Resolve(host);
-                pos.Value = actor.transform.position;
+                pos.Position = actor.transform.position;
 
                 string actorName = string.IsNullOrEmpty(actor.SearchName)
                     ? actor.name

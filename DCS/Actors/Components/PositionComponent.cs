@@ -12,10 +12,7 @@ namespace DCS.Actors
     public struct PositionComponent : IComponent
     {
         public int RosterIndex { get; set; }
-        public Vector3 Value;
+        public Vector3 Position;
+        public Quaternion Rotation;
     }
-
-
-
-
 }

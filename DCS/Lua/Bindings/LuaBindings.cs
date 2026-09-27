@@ -11,8 +11,8 @@ namespace DCS.Lua
             DynamicFactsBinding.Register(L);
             SpatialBindings.Register(L);
             WorldBindings.Register(L);
-            AIBindings.Register(L);
             InputBindings.Register(L);
+            AIBindings.Register(L);
             CameraBindings.Register(L);
             SceneBindings.Register(L);
             VectorBindings.Register(L);         

@@ -5,20 +5,21 @@ namespace DCS.Core
     public static class DomainRegistry
     {
         private static readonly List<Domain> _byId = new();
-        private static readonly Dictionary<string, int> _byName = new();
+        private static readonly Dictionary<uint, int> _byName = new();
 
         public static Domain Create(string name, int hostCapacity = 50000, int subCapacity = 1000)
         {
             if (string.IsNullOrEmpty(name))
                 name = $"domain_{_byId.Count}";
 
-            if (_byName.TryGetValue(name, out int existing))
+            var aname = new Name(name);
+            if (_byName.TryGetValue(aname.Id, out int existing))
                 return _byId[existing];
 
             int id = _byId.Count;
             var domain = new Domain(id, name, hostCapacity, subCapacity);
             _byId.Add(domain);
-            _byName[name] = id;
+            _byName[aname.Id] = id;
             return domain;
         }
 
@@ -33,7 +34,8 @@ namespace DCS.Core
         {
             if (string.IsNullOrEmpty(name))
                 return null;
-            return _byName.TryGetValue(name, out int id) ? _byId[id] : null;
+            var aname = new Name(name);
+            return _byName.TryGetValue(aname.Id, out int id) ? _byId[id] : null;
         }
 
         /// <summary>
