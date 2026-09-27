@@ -1,96 +1,41 @@
 # Core
 
-**Dynamic Component System — the infrastructure everything runs on.**
+**Dynamic Component System — инфраструктура, на которой работает всё остальное.**
 
-`Core` is the foundation of DCS.
-
-It provides the runtime mechanisms required by other systems without knowing what the actual game is about.
-
-DCS is intentionally built on top of Core rather than putting gameplay-specific logic into the foundation.
+Core не знает, про какую игру он. Он даёт механизмы: хосты, компоненты, события, факты, планировщик. Всё, что знает про игру, живёт выше.
 
 ---
 
-## Purpose
+## Назначение
 
-Core answers:
+Core отвечает на вопрос: **«как это работает?»**
 
-> **How does the system work?**
+Он даёт общий рантайм для:
 
-It provides the common runtime infrastructure for:
-
-* dynamic components;
-* hosts and identity;
-* component storage;
-* events;
-* facts;
-* scheduling;
-* handlers;
-* reflection and generated metadata.
+- динамических компонентов;
+- хостов и идентичности;
+- хранения компонентов;
+- событий;
+- фактов;
+- планирования обновлений;
+- маршалинга и инспекции.
 
 ---
 
-## Responsibilities
+## Что Core не содержит
 
-Core owns the mechanisms that are shared by many independent systems.
+Core не содержит игровых концепций:
 
-Typical responsibilities:
+- актёров, зон, навигации;
+- пространственной геометрии;
+- квестов, боя, AI;
+- правил мира.
 
-```text
-Core
- ├── Components
- ├── Hosts
- ├── Facts
- ├── Events
- ├── Scheduling
- ├── Handlers
- └── Reflection
-```
-
-These systems should be usable by World, Spatial, Gameplay, Navigation, Interaction and Lua without Core knowing about those domains.
+Всё это живёт в `Gameplay`, `World`, `Spatial`, `Navigation`, `Interaction`, `Lua` и использует Core как фундамент.
 
 ---
 
-## Does Not Own
-
-Core must not become a container for everything that is "important".
-
-It does **not** own:
-
-* Zones;
-* Actors;
-* Navigation;
-* Spatial geometry;
-* Interaction logic;
-* quests;
-* combat;
-* AI;
-* world authoring;
-* game-specific rules.
-
-For example:
-
-```text
-Bad:
-
-Core
- └── ZoneManager
-```
-
-Instead:
-
-```text
-Gameplay
- └── Zones
-      └── ZoneRuntime
-```
-
-which uses Core infrastructure where necessary.
-
----
-
-## Dependency Rule
-
-Core should have the smallest possible knowledge of the rest of DCS.
+## Правило зависимостей
 
 ```text
 World ──────────┐
@@ -101,97 +46,52 @@ Interaction ────┤
 Lua ────────────┘
 ```
 
-The reverse dependency should generally not exist.
-
-```text
-Core
-  ✗ Gameplay
-  ✗ World
-  ✗ Navigation
-  ✗ Interaction
-```
+Обратной зависимости быть не должно. Core не ссылается на `Gameplay`, `World`, `Spatial`, `Lua`.
 
 ---
 
-## Mental Model
+## Принцип
 
-Think of Core as the **operating machinery** of DCS.
+> **Core даёт механизмы, а не смысл.**
 
-It does not decide:
-
-> "What should happen?"
-
-It provides the mechanisms that allow another system to decide that.
-
-For example:
-
-```text
-Gameplay
-   │
-   ├── decides what should happen
-   │
-   ▼
-Core Event System
-   │
-   └── delivers the event
-```
-
-Core provides the mechanism.
-
-The domain system provides the meaning.
+Если фичу можно описать, не зная ничего про игру — она в Core. Если нужно игровое понятие — она выше Core.
 
 ---
 
-## Why Core Is Abstract
-
-DCS is designed to support different kinds of gameplay systems.
-
-Therefore Core cannot assume that a component represents:
-
-* an enemy;
-* a door;
-* a weapon;
-* a zone;
-* a navigation agent.
-
-Instead it works with generic concepts such as:
-
-```text
-Host
-Component
-Event
-Fact
-Handler
-Schedule
-```
-
-This is one of the main sources of DCS's flexibility — and also one of the reasons the architecture requires explicit documentation.
-
----
-
-## Structure
-
-The exact folder structure may evolve, but conceptually:
+## Структура
 
 ```text
 Core/
- ├── Runtime/
- ├── Components/
- ├── Host/
- ├── Facts/
- ├── Events/
- ├── Scheduling/
- └── Reflection/
+├── Attributes/     # PoolAttribute, GenerateAttribute
+├── Components/     # IComponent, IInitializable
+├── Config/         # DcsConfig, HandleConfig
+├── Domains/        # Domain, DomainRegistry
+├── Events/         # IEvent, EventPool, EventSystem, EventSubscription, TypeChain
+│   └── Contracts/  # IEventDispatcher, IMessageReceiver
+├── Handles/        # Handle, Host, TypedHandle
+├── Hosts/          # HostManager, HostChain, HostData, IHostReference
+├── Math/           # Crc32
+├── Pools/          # ComponentPool, FastPool, ComponentSparse, FastSparseTable, IComponentPool
+├── Registry/       # ComponentRegistry, UpdateScheduler
+├── Shared/         # IInspectable
+└── Systems/        # ComponentSystem, EUpdateStage
 ```
-
-Each subsystem should remain focused on its own mechanism.
 
 ---
 
-## Design Principle
+## Что делает каждая папка
 
-> **Core provides mechanisms, not meaning.**
-
-If a feature can be described without knowing anything about the game, it may belong in Core.
-
-If it requires game-specific concepts, it probably belongs somewhere above Core.
+| Папка | Отвечает за |
+|---|---|
+| `Attributes` | Атрибуты для регистрации пулов и генерации кода |
+| `Components` | Базовые контракты компонентов |
+| `Config` | Глобальные лимиты и битовые маски |
+| `Domains` | Изолированные пространства хостов и компонентов |
+| `Events` | Доставка событий между хостами |
+| `Handles` | Идентификаторы: Handle, Host, TypedHandle |
+| `Hosts` | Управление жизненным циклом хостов и их цепочками |
+| `Math` | Хеши и утилиты |
+| `Pools` | Хранение компонентов: классический и быстрый пулы |
+| `Registry` | Регистрация типов компонентов и порядок обновления |
+| `Shared` | Общие интерфейсы без конкретной прописки |
+| `Systems` | Контракт обновления систем и фасад `DCSystem` |

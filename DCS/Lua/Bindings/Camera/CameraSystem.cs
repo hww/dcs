@@ -16,10 +16,10 @@ namespace DCS.Core
             if (string.IsNullOrEmpty(expectedName)) return false;
             if (chain == null) return false;
 
-            var pool = ComponentRegistry.GetPool<CameraNameComponent>();
+            var pool = ComponentRegistry.GetPool<NameComponent>();
             if (pool == null) return false;
 
-            int typeId = ComponentType<CameraNameComponent>.Id;
+            int typeId = ComponentType<NameComponent>.Id;
             int count = HostManager.GlobalHosts.Length;
 
             for (int i = 0; i < count; i++)
@@ -37,7 +37,7 @@ namespace DCS.Core
                 int denseIndex;
                 if (!pool.TryGetDenseIndex(node.Component, out denseIndex)) continue;
 
-                ref CameraNameComponent cam = ref pool.Components[denseIndex];
+                ref NameComponent cam = ref pool.Components[denseIndex];
                 if (cam.Name != expectedName) continue;
 
                 result = host;

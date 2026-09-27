@@ -1,0 +1,256 @@
+using System.Runtime.CompilerServices;
+using System.Reflection;
+using UnityEngine;
+using System;
+
+namespace DCS.Core
+{
+    // ============================================================
+    //  COMPONENT TYPE — TYPE ID GENERATOR
+    // ============================================================
+
+    /// <summary>
+    /// Auto-generates and registers a unique type ID for each component type.
+    /// </summary>
+    /// <typeparam name="T">Component type to register.</typeparam>
+    /// <remarks>
+    /// The static constructor is triggered by RuntimeHelpers.RunClassConstructor
+    /// during pool initialization, registering the type and creating its pool.
+    ///
+    /// This design ensures:
+    /// - Type IDs are assigned at compile-time (via static constructor)
+    /// - No runtime reflection in hot paths
+    /// - Type-safe access to pools
+    ///
+    /// Usage: ComponentType{MyComponent}.Id returns the unique type ID.
+    /// </remarks>
+    public static class ComponentType<T> where T : struct, IComponent
+    {
+        /// <summary>Unique type identifier for T.</summary>
+        public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
+    }
+
+    // ============================================================
+    //  COMPONENT REGISTRY — CENTRAL TYPE AND POOL REGISTRY
+    // ============================================================
+
+    /// <summary>
+    /// Central registry for all component types and their pools.
+    /// </summary>
+    /// <remarks>
+    /// Manages:
+    /// - Unique type IDs (assigned during static initialization)
+    /// - Pool instances for each component type
+    /// - Event type tracking for polling
+    ///
+    /// Initialization flow:
+    /// 1. ComponentType{T}.Id triggers RegisterNewType{T}
+    /// 2. RegisterNewType creates the appropriate pool
+    /// 3. InitializeAllPools scans assemblies for DcsPoolAttribute
+    /// 4. Forces static constructor execution for all registered types
+    ///
+    /// This design provides O(1) pool access by TypeId.
+    /// </remarks>
+    public static class ComponentRegistry
+    {
+        /// <summary>Internal type counter for assigning unique IDs.</summary>
+        private static int _typeCounter = 0;
+
+        /// <summary>Maximum number of component types.</summary>
+        public const int MaxComponentTypes = DcsConfig.MaxComponentTypes;
+
+        /// <summary>Array of all component pools, indexed by TypeId.</summary>
+        public static readonly IComponentPool[] Pools = new IComponentPool[MaxComponentTypes];
+
+        /// <summary>Array of event type IDs for polling.</summary>
+        public static readonly int[] PollTypeIds = new int[MaxComponentTypes];
+
+        /// <summary>Number of registered event types.</summary>
+        public static int PollTypesCount = 0;
+
+        public static readonly FastSparseTable GroupTable =
+            new FastSparseTable(HostManager.MaxGameObjects);
+
+        private static readonly object[] _fastPools = new object[MaxComponentTypes];
+
+        /// <summary>
+        /// Initializes all pools by scanning assemblies for DcsPoolAttribute.
+        /// </summary>
+        /// <remarks>
+        /// This must be called once at startup (e.g., in the game initialization).
+        /// It:
+        /// 1. Scans all types in the executing assembly
+        /// 2. Finds structs with DcsPoolAttribute
+        /// 3. Triggers their static constructor via RuntimeHelpers.RunClassConstructor
+        /// 4. Collects event types into PollTypeIds for fast iteration
+        ///
+        /// After this call, all pools are ready for use.
+        /// </remarks>
+        public static void InitializeAllPools()
+        {
+            var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+            {
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (System.Reflection.ReflectionTypeLoadException e)
+                {
+                    types = e.Types;   // частично загруженные
+                }
+
+                foreach (var type in types)
+                {
+                    if (type == null) continue;
+                    if (!type.IsValueType) continue;
+                    if (type.IsAbstract) continue;
+
+                    var poolAttribute = type.GetCustomAttribute<BasePoolAttribute>(inherit: false);
+                    if (poolAttribute == null) continue;
+
+                    // Регистрируем
+                    var genericComponentType = typeof(ComponentType<>).MakeGenericType(type);
+                    RuntimeHelpers.RunClassConstructor(genericComponentType.TypeHandle);
+
+                    if (typeof(IEvent).IsAssignableFrom(type))
+                    {
+                        var idField = genericComponentType.GetField(
+                            "Id",
+                            BindingFlags.Public | BindingFlags.Static);
+                        PollTypeIds[PollTypesCount++] = (int)idField.GetValue(null);
+                    }
+                }
+            }
+            Debug.Log($"<color=green>[DCS SUCCESS]</color> Pools allocated. Total types: {_typeCounter}");
+        }
+
+        /// <summary>
+        /// Registers a new component type and creates its pool.
+        /// </summary>
+        /// <typeparam name="T">Component type to register.</typeparam>
+        /// <returns>Unique TypeId for T.</returns>
+        /// <exception cref="System.Exception">If the type limit is exceeded.</exception>
+        /// <remarks>
+        /// Called automatically by ComponentType{T}.Id static constructor.
+        ///
+        /// Algorithm:
+        /// 1. Assigns a new TypeId
+        /// 2. Reads DcsPoolAttribute for capacity and settings
+        /// 3. Creates either:
+        ///    - EventManager{T} if T implements IEventData
+        ///    - ComponentManager{T} for regular components
+        /// 4. Stores the pool in the Pools array at the TypeId index
+        ///
+        /// Complexity: O(1)
+        /// </remarks>
+        public static int RegisterNewType<T>() where T : struct, IComponent
+        {
+            int newId = _typeCounter++;
+            if (newId >= MaxComponentTypes)
+                throw new System.Exception("DCS Error: Component type limit exceeded!");
+
+            // Get capacity from attribute or use default
+            int capacity = 1000;
+            var attr = typeof(T).GetCustomAttribute<BasePoolAttribute>();
+            if (attr != null)
+                capacity = attr.Capacity;
+
+            // Create the appropriate pool type
+            if (typeof(IEvent).IsAssignableFrom(typeof(T)))
+            {
+                var eventManagerType = typeof(EventPool<>).MakeGenericType(typeof(T));
+                Pools[newId] = (IComponentPool)System.Activator.CreateInstance(eventManagerType, capacity);
+            }
+            else
+            {
+                Pools[newId] = new ComponentPool<T>(capacity);
+            }
+
+            Pools[newId].SetPoolId(newId);
+
+            return newId;
+        }
+
+        /// <summary>
+        /// Gets the typed pool for component type T.
+        /// </summary>
+        /// <typeparam name="T">Component type.</typeparam>
+        /// <returns>Typed component manager for T.</returns>
+        /// <remarks>
+        /// This is the primary way to access pools in hot paths.
+        /// Uses aggressive inlining for zero-overhead access.
+        ///
+        /// Complexity: O(1)
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentPool<T> GetPool<T>() where T : struct, IComponent
+        {
+            return (ComponentPool<T>)Pools[ComponentType<T>.Id];
+        }
+
+        /// <summary>
+        /// Gets the total number of registered component types in the system.
+        /// </summary>
+        public static int GetTypesCount()
+        {
+            return _typeCounter;
+        }
+
+        /// <summary>
+        /// Resolves a component structure name by its unique integer TypeId.
+        /// </summary>
+        /// <param name="id">The unique component TypeId.</param>
+        /// <returns>The string name of the component struct type, or an empty string if invalid.</returns>
+        public static string GetTypeNameById(int id)
+        {
+            if (id < 0 || id >= _typeCounter || Pools[id] == null)
+            {
+                return string.Empty;
+            }
+
+            System.Type poolType = Pools[id].GetType();
+            if (poolType.IsGenericType)
+            {
+                System.Type[] genericArgs = poolType.GetGenericArguments();
+                if (genericArgs.Length > 0)
+                {
+                    return genericArgs[0].Name;
+                }
+            }
+
+            return string.Empty;
+        }
+
+
+        public static int RegisterFastPool<T>(int capacity = 4096) where T : struct, IComponent
+        {
+            int id = ComponentType<T>.Id;
+            if (_fastPools[id] == null)
+            {
+                _fastPools[id] = new FastPool<T>(GroupTable, capacity, id);
+            }
+            return id;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static FastPool<T> GetFastPool<T>() where T : struct, IComponent
+        {
+            int id = ComponentType<T>.Id;
+            var pool = _fastPools[id] as FastPool<T>;
+            if (pool == null)
+                throw new InvalidOperationException(
+                    $"FastPool<{typeof(T).Name}> not registered. " +
+                    $"Call ComponentRegistry.RegisterFastPool<{typeof(T).Name}>() first.");
+            return pool;
+        }
+
+        public static bool TryGetFastPool<T>(out FastPool<T> pool) where T : struct, IComponent
+        {
+            int id = ComponentType<T>.Id;
+            pool = _fastPools[id] as FastPool<T>;
+            return pool != null;
+        }
+    }
+}

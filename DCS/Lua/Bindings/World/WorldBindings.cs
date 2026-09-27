@@ -9,7 +9,7 @@ namespace DCS.Lua.Bindings
             LuaBindings.RegisterNamespace(L, "World", (state, tableIndex) =>
             {
                 ActorBindings.Register(state, tableIndex);
-                ActorRegistrationBindings.Register(state, tableIndex);
+                ActorRegistryBindings.Register(state);
             });
             
 

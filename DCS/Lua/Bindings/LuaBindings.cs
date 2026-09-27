@@ -11,13 +11,15 @@ namespace DCS.Lua.Bindings
             DynamicFactsBinding.Register(L);
             SpatialBindings.Register(L);
             WorldBindings.Register(L);
-            MapBindings.Register(L);
             AIBindings.Register(L);
             InputBindings.Register(L);
             CameraBindings.Register(L);
             SceneBindings.Register(L);
             VectorBindings.Register(L);         
-            LuaRuntimeBindings.Register(L);     
+            LuaRuntimeBindings.Register(L);
+            ActorRegistryBindings.Register(L);   // semantic
+            DynamicSpatialBindings.Register(L);  // dynamic spatial
+            StaticSpatialBindings.Register(L);   // baked static spatial
         }
 
         public static void RegisterGlobalFunction(IntPtr L, Func<IntPtr, int> fn, string name)
