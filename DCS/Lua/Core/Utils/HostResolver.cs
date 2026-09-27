@@ -1,4 +1,5 @@
 using DCS.Core;
+using DCS.Spatial;
 using System;
 
 namespace DCS.Lua
@@ -32,6 +33,14 @@ namespace DCS.Lua
             if (packed == HandleConfig.NULL_INDEX)
                 return null;
             return HostManager.GetHostReference(new Handle(packed));
+        }
+
+        public static bool TryGetSpatialDomain(IntPtr L, int argIndex, out SpatialDomain spatial)
+        {
+            spatial = null;
+            if (!TryGetDomain(L, argIndex, out Domain domain)) return false;
+            if (!domain.HasSpatial) return false;
+            return SpatialDomainRegistry.TryGet(domain.SpatialDomainId, out spatial);
         }
     }
 }

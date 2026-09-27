@@ -1,5 +1,6 @@
 using DCS.Actors;
 using DCS.Core;
+using DCS.Lua;
 using DCS.Spatial;
 using UnityEngine;
 
@@ -58,6 +59,8 @@ namespace DCS.SoldierCS
         // --- Internal ---
         private bool _initialized;
         private int _frameCounter;
+
+        private LuaManager _lua;
 
         private void Awake()
         {
@@ -155,10 +158,25 @@ namespace DCS.SoldierCS
                 spatial.Update();
             }
 
+            // Доставка событий через Lua.
+            EventSystem.DeliverAll(Domain, Dispatch);  // новое
+
             // 6. Синхронизация с Transform.
             // _transformSync.Update(Domain, TimeFrame);
 
             _frameCounter++;
+        }
+
+
+        private void Dispatch(in SubscriptionNode sub, Host sender, int eventTypeId, Handle messageHandle)
+        {
+            if (sub.ProcessTypeId == ComponentType<SubscriptionNode>.Id)
+            {
+                _lua?.CallEventRouter(sender.Id, eventTypeId, messageHandle.Pack());
+                return;
+            }
+            var pool = ComponentRegistry.Pools[sub.ProcessTypeId];
+            pool?.SystemDeliver(sub.ProcessHandle.Id, eventTypeId, messageHandle);
         }
     }
 }

@@ -12,13 +12,13 @@ namespace DCS.Examples.LuaExample
         void OnEnable()
         {
             // Один раз: вызов Lua boot-функции
-            LuaManager.Instance.CallGlobal("DCS_Global_GameBoot");
+            LuaManager.Current.CallGlobal("DCS_Global_GameBoot");
         }
 
         void Update()
         {
             // Каждый кадр: тик Lua-процессов
-            LuaManager.Instance.CallGlobal("DCS_Global_FrameUpdate");
+            LuaManager.Current.CallGlobal("DCS_Global_FrameUpdate");
         }
     }
 }

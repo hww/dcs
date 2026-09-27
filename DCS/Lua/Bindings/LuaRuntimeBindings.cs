@@ -25,13 +25,13 @@ namespace DCS.Lua
                 return 1;
             }
 
-            if (LuaManager.Instance == null)
+            if (LuaManager.Current == null)
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            string code = LuaManager.Instance.ReadScriptFile(path);
+            string code = LuaManager.Current.ReadScriptFile(path);
             if (string.IsNullOrEmpty(code))
             {
                 LuaNative.lua_pushnil(L);

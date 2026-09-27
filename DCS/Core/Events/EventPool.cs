@@ -24,7 +24,7 @@ namespace DCS.Core
     ///
     /// Memory: Inherits from ComponentManager with capacity configured via MessagePoolAttribute.
     /// </remarks>
-    public class EventPool<T> : ComponentPool<T>
+    public class EventPool<T> : ComponentPool<T>, IEventPool
         where T : struct, IEvent
     {
         /// <summary>
@@ -35,6 +35,8 @@ namespace DCS.Core
             : base(capacity, EUpdateStage.Update, EAsyncUpdateStage.None, 0)
         {
         }
+
+        public int EventPartition => throw new System.NotImplementedException();
 
         /// <summary>
         /// Allocates a new event component.
@@ -93,25 +95,26 @@ namespace DCS.Core
             return handle;
         }
 
-        /// <summary>
-        /// Polls the event pool and builds the invocation list.
-        /// </summary>
-        /// <param name="subManager">Subscription manager.</param>
-        /// <param name="typeChain">Type chain manager.</param>
-        /// <remarks>
-        /// Called by EventSystem during the Update phase.
-        /// Delegates to EventSystem.PollEvents{T} which:
-        /// 1. Iterates all active events in the pool
-        /// 2. Finds matching subscriptions via TypeChainManager
-        /// 3. Checks namespace masks
-        /// 4. Builds the invocation list for EventSystem.DeliverEvents
-        ///
-        /// The pool knows its exact T type at compile time,
-        /// enabling efficient generic dispatch.
-        /// </remarks>
-        public void SystemPoll(EventSubscription subManager, TypeChain typeChain)
+        public void GetMessageHandle(int denseIndex, out Handle handle)
         {
-            EventSystem.PollEvents<T>(subManager, typeChain);
+            // У EventPool denseIndex == rosterIndex.
+            int rosterIdx = denseIndex;
+            handle = new Handle
+            {
+                Id = (ushort)rosterIdx,
+                Generation = (ushort)Roster[rosterIdx].Generation
+            };
         }
+
+        public uint GetMessageNamespaceMask(int denseIndex)
+        {
+            return Components[denseIndex].NamespaceMask;
+        }
+
+        public Host GetSenderHost(int denseIndex)
+        {
+            return Roster[denseIndex].Host;
+        }
+
     }
 }

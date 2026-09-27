@@ -2,28 +2,35 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
-using DCS.Lua;
 using DCS.Data;
-using DCS.Spatial;
 
 namespace DCS.World
 {
+    /// <summary>
+    /// Загружает сцену и её MapDataset.
+    /// Не знает ни про Root, ни про WorldRuntime, ни про SpatialDomain.
+    /// Кто хочет — получает MapDataset через onComplete.
+    /// </summary>
     public static class DatasetLoader
     {
         private static MapDataset _currentDataset;
         private static string _loadingMapName;
         private static bool _isLoading;
-        private static float _loadingProgress; // Переменная от 0.0 до 1.0
+        private static float _loadingProgress;
 
         public static string CurrentMapName => _currentDataset != null ? _currentDataset.MapName : string.Empty;
         public static bool IsLoading => _isLoading;
-
-        /// <summary>
-        /// Текущий прогресс загрузки в диапазоне от 0.0 до 1.0 (для Lua)
-        /// </summary>
         public static float LoadingProgress => _loadingProgress;
 
-        public static void StreamMapAsync(string mapName, MonoBehaviour coroutineRunner, Action onComplete = null)
+        /// <summary>
+        /// Асинхронно загружает сцену и датасет.
+        /// onComplete получает загруженный MapDataset. Root сам решает,
+        /// что с ним делать (World.Load, SpatialDomain.StaticSpatial.Load, ...).
+        /// </summary>
+        public static void StreamMapAsync(
+            string mapName,
+            MonoBehaviour coroutineRunner,
+            Action<MapDataset> onComplete = null)
         {
             if (_isLoading)
             {
@@ -34,32 +41,31 @@ namespace DCS.World
             coroutineRunner.StartCoroutine(StreamMapRoutine(mapName, onComplete));
         }
 
-        private static IEnumerator StreamMapRoutine(string mapName, Action onComplete)
+        private static IEnumerator StreamMapRoutine(string mapName, Action<MapDataset> onComplete)
         {
             _isLoading = true;
             _loadingProgress = 0f;
             _loadingMapName = mapName;
-            Debug.Log($"<color=cyan>[Dataseter Stream]</color> Начат асинхронный стриминг: {mapName}");
+            Debug.Log($"<color=cyan>[DatasetLoader]</color> Начат асинхронный стриминг: {mapName}");
 
             // --- ЭТАП 1: Выгрузка старой карты ---
             if (_currentDataset != null)
             {
                 string oldMapName = _currentDataset.MapName;
-                UnloadMapDataset();
+                UnloadCurrent();
 
                 AsyncOperation unloadOp = SceneManager.UnloadSceneAsync(oldMapName);
                 if (unloadOp != null)
                 {
                     while (!unloadOp.isDone)
                     {
-                        // Во время выгрузки прогресс держим около нуля
                         _loadingProgress = unloadOp.progress * 0.1f;
                         yield return null;
                     }
                 }
             }
 
-            // --- ЭТАП 2: Асинхронная загрузка визуала Unity ---
+            // --- ЭТАП 2: Загрузка сцены ---
             AsyncOperation loadSceneOp = SceneManager.LoadSceneAsync(mapName, LoadSceneMode.Additive);
             if (loadSceneOp == null)
             {
@@ -70,19 +76,15 @@ namespace DCS.World
 
             while (!loadSceneOp.isDone)
             {
-                // Unity загружает меши и текстуры. Прогресс операции идет от 0.0 до 0.9.
-                // Нормализуем его, чтобы для Lua это выглядело как честные 0% - 90%
                 _loadingProgress = 0.1f + (loadSceneOp.progress / 0.9f) * 0.8f;
                 yield return null;
             }
 
             Scene loadedScene = SceneManager.GetSceneByName(mapName);
             if (loadedScene.IsValid())
-            {
                 SceneManager.SetActiveScene(loadedScene);
-            }
 
-            // --- ЭТАП 3: Загрузка логических данных (DCS Dataset) ---
+            // --- ЭТАП 3: Загрузка датасета ---
             string resourcePath = $"Maps/{mapName}_dataset";
             _currentDataset = Resources.Load<MapDataset>(resourcePath);
 
@@ -93,40 +95,23 @@ namespace DCS.World
                 yield break;
             }
 
-            if (WorldRuntime.Instance != null)
-            {
-                WorldRuntime.Instance.Load(_currentDataset);
-            }
-            else
-            {
-                Debug.LogError("[DatasetLoader] GameplayRuntime instance is missing.");
-            }
-
-            RegisterEntitiesInComponentPools(_currentDataset);
-
-            // Загрузка завершена на 100%
             _loadingProgress = 1.0f;
             _isLoading = false;
-            Debug.Log($"<color=green>[Dataseter Stream]</color> Стриминг локации '{mapName}' завершен.");
+            Debug.Log($"<color=green>[DatasetLoader]</color> Стриминг локации '{mapName}' завершен.");
 
-            onComplete?.Invoke();
+            // Root сам вызовет World.Load(dataset, spatialDomain).
+            onComplete?.Invoke(_currentDataset);
         }
 
-        public static void UnloadMapDataset()
+        /// <summary>
+        /// Выгружает текущий датасет из памяти. Root должен сам очистить
+        /// WorldRuntime и SpatialDomain.StaticSpatial — DatasetLoader про них не знает.
+        /// </summary>
+        public static void UnloadCurrent()
         {
             if (_currentDataset == null) return;
-
-            if (WorldRuntime.Instance != null)
-            {
-                WorldRuntime.Instance.Clear();
-            }
-
-            UnregisterEntitiesFromPools(_currentDataset);
             Resources.UnloadAsset(_currentDataset);
             _currentDataset = null;
         }
-
-        private static void RegisterEntitiesInComponentPools(MapDataset dataset) { }
-        private static void UnregisterEntitiesFromPools(MapDataset dataset) { }
     }
 }

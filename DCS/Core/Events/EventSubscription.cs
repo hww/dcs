@@ -36,26 +36,6 @@ namespace DCS.Core
 
         /// <summary>Index in the Roster (required by IDcsComponent).</summary>
         public int RosterIndex { get; set; }
-
-        public void ReceiveMessage(int msgTypeId, Handle msgHandle)
-        {
-            var pool = ComponentRegistry.GetPool<SubscriptionNode>();
-
-            if (RosterIndex < 0 || RosterIndex >= pool.Roster.Length)
-                return;
-
-            RosterItem roster = pool.Roster[RosterIndex];
-
-            if (roster.Index < 0)
-                return;
-
-            Host receiverHost = roster.Host;
-
-            LuaManager.DeliverEventToLua(
-                receiverHost.Id,
-                msgTypeId,
-                msgHandle.Pack());
-        }
     }
 
     // ============================================================

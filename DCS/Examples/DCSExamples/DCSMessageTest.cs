@@ -124,12 +124,7 @@ public class DCSMessageTest : MonoBehaviour
     private void Update()
     {
         // Update-фаза: Poll + Deliver.
-        DCSystem.UpdateComponents(
-            EUpdateStage.Update,
-            _updateScheduler,
-            _subManager,
-            _typeChain,
-            _hostChain);
+
 
         // Точечный polling: HealthSystem забирает урон из цепочки Игрока.
         Handle hDamage = DCSystem.Get<DamageEvent>(_player, _hostChain);
@@ -141,11 +136,6 @@ public class DCSMessageTest : MonoBehaviour
         }
 
         // PostUpdate-фаза: ClearFramePool по всем event-пулам.
-        DCSystem.UpdateComponents(
-            EUpdateStage.PostUpdate,
-            _updateScheduler,
-            _subManager,
-            _typeChain,
-            _hostChain);
+
     }
 }

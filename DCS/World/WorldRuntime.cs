@@ -1,73 +1,58 @@
-using UnityEngine;
-using DCS.Spatial;
-using DCS.Data;
 using DCS.Authoring;
+using DCS.Core;
+using DCS.Data;
+using DCS.Spatial;
+using UnityEngine;
 
 namespace DCS.World
 {
     /// <summary>
-    /// Coordinates runtime gameplay systems for the currently loaded MapDataset.
-    /// Does not contain gameplay rules itself.
+    /// Мир игры: текущий датасет, encounters, triggers.
+    /// Не MonoBehaviour. Живёт как поле в Root.
     /// </summary>
-    public sealed class WorldRuntime : MonoBehaviour
+    public sealed class WorldRuntime
     {
-        public static WorldRuntime Instance { get; private set; }
-
         public MapDataset CurrentDataset { get; private set; }
-
         public EncounterRuntimeRegistry Encounters { get; private set; }
         public TriggerSystem Triggers { get; private set; }
-
         public bool HasData => CurrentDataset != null;
 
-        private void Awake()
+        public WorldRuntime()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-
             Encounters = new EncounterRuntimeRegistry();
             Triggers = new TriggerSystem();
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// Загружает датасет в world. SpatialDomain передаётся, чтобы
+        /// загрузить в него static spatial.
+        /// </summary>
+        public void Load(MapDataset dataset, SpatialDomain spatial)
         {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public void Load(MapDataset dataset)
-        {
-            Clear();
-
+            Clear(spatial);
             if (dataset == null)
             {
-                Debug.LogError("[GameplayRuntime] Dataset is null.");
+                Debug.LogError("[WorldRuntime] Dataset is null.");
                 return;
             }
 
             CurrentDataset = dataset;
 
-            if (SpatialRuntime.Instance != null)
-                SpatialRuntime.Instance.Load(dataset);
+            if (spatial != null)
+            {
+                spatial.StaticSpatial ??= new SpatialRuntime(0);
+                spatial.StaticSpatial.Load(dataset);
+            }
 
             Encounters.Load(dataset.Encounters);
             Triggers.Load(dataset.Triggers);
         }
 
-        public void Clear()
+        public void Clear(SpatialDomain spatial)
         {
             Triggers?.Clear();
             Encounters?.Clear();
-
-            if (SpatialRuntime.Instance != null)
-                SpatialRuntime.Instance.Clear();
-
+            spatial?.StaticSpatial?.Clear();
             CurrentDataset = null;
         }
     }

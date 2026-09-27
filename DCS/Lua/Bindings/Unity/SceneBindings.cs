@@ -34,15 +34,7 @@ namespace DCS.Lua
             bool withActors = LuaNative.lua_gettop(L) < 2
                 || LuaArgumentReader.ReadBool(L, 2);
 
-            MonoBehaviour runner = SpatialRuntime.Instance;
-            if (runner == null)
-            {
-                SceneManager.LoadScene(name);
-                if (withActors) RegisterSceneActors(name);
-                return 0;
-            }
-
-            DatasetLoader.StreamMapAsync(name, runner, () =>
+            DatasetLoader.StreamMapAsync(name, SceneStreamRunner.Instance, dataset =>
             {
                 if (withActors) RegisterSceneActors(name);
             });
@@ -56,7 +48,7 @@ namespace DCS.Lua
             if (string.IsNullOrEmpty(name)) return 0;
 
             if (DatasetLoader.CurrentMapName == name)
-                DatasetLoader.UnloadMapDataset();
+                DatasetLoader.UnloadCurrent();
 
             SceneManager.UnloadSceneAsync(name);
             return 0;

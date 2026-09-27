@@ -7,8 +7,8 @@ using UnityEngine;
 namespace DCS.Lua
 {
     /// <summary>
-    /// Queries over SpatialRuntime (baked static geometry from MapDataset).
-    /// Returns OwnerId (which for baked data is the region/trigger/strongpoint id).
+    /// Запросы к запечённому (статическому) SpatialRuntime из Lua.
+    /// Первый аргумент каждой функции — domainId.
     /// </summary>
     public static class StaticSpatialBindings
     {
@@ -25,62 +25,78 @@ namespace DCS.Lua
             });
         }
 
+        // StaticSpatial.QueryPoint(domainId, x, y, z, type) -> array
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryPoint(IntPtr L)
         {
-            Vector3 point = ReadVector3(L, 1);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 4);
+            if (!TryGetSpatial(L, out var spatial))
+            {
+                LuaNative.lua_newtable(L);
+                return 1;
+            }
+
+            Vector3 point = ReadVector3(L, 2);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
 
             _results.Clear();
-            var spatial = SpatialRuntime.Instance;
-            if (spatial != null)
-                spatial.QueryPoint(point, SpatialQueryFilter.ByType(type), _results);
+            spatial.QueryPoint(point, SpatialQueryFilter.ByType(type), _results);
             PushOwners(L, _results);
             return 1;
         }
 
+        // StaticSpatial.QueryRadius(domainId, x, y, z, radius, type) -> array
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryRadius(IntPtr L)
         {
-            Vector3 center = ReadVector3(L, 1);
-            float radius = LuaArgumentReader.ReadFloat(L, 4);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
+            if (!TryGetSpatial(L, out var spatial))
+            {
+                LuaNative.lua_newtable(L);
+                return 1;
+            }
+
+            Vector3 center = ReadVector3(L, 2);
+            float radius = LuaArgumentReader.ReadFloat(L, 5);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 6);
 
             _results.Clear();
-            var spatial = SpatialRuntime.Instance;
-            if (spatial != null)
-                spatial.QueryRadius(center, radius, SpatialQueryFilter.ByType(type), _results);
+            spatial.QueryRadius(center, radius, SpatialQueryFilter.ByType(type), _results);
             PushOwners(L, _results);
             return 1;
         }
 
+        // StaticSpatial.Contains(domainId, x, y, z, ownerId, type) -> bool
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Contains(IntPtr L)
         {
-            Vector3 point = ReadVector3(L, 1);
-            ushort ownerId = (ushort)LuaArgumentReader.ReadInt(L, 4);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
-
-            bool contains = SpatialRuntime.Instance != null &&
-                            SpatialRuntime.Instance.Contains(point, ownerId, type);
-            LuaNative.lua_pushboolean(L, contains ? 1 : 0);
-            return 1;
-        }
-
-        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
-        private static int Lua_Raycast(IntPtr L)
-        {
-            Vector3 origin = ReadVector3(L, 1);
-            Vector3 dir = ReadVector3(L, 4);
-            float maxDist = LuaArgumentReader.ReadFloat(L, 7);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 8);
-
-            var spatial = SpatialRuntime.Instance;
-            if (spatial == null)
+            if (!TryGetSpatial(L, out var spatial))
             {
                 LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
+
+            Vector3 point = ReadVector3(L, 2);
+            ushort ownerId = (ushort)LuaArgumentReader.ReadInt(L, 5);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 6);
+
+            bool contains = spatial.Contains(point, ownerId, type);
+            LuaNative.lua_pushboolean(L, contains ? 1 : 0);
+            return 1;
+        }
+
+        // StaticSpatial.Raycast(domainId, ox,oy,oz, dx,dy,dz, maxDist, type) -> false | 9 values
+        [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
+        private static int Lua_Raycast(IntPtr L)
+        {
+            if (!TryGetSpatial(L, out var spatial))
+            {
+                LuaNative.lua_pushboolean(L, 0);
+                return 1;
+            }
+
+            Vector3 origin = ReadVector3(L, 2);
+            Vector3 dir = ReadVector3(L, 5);
+            float maxDist = LuaArgumentReader.ReadFloat(L, 8);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 9);
 
             bool hit = spatial.Raycast(
                 origin, dir, maxDist,
@@ -103,6 +119,19 @@ namespace DCS.Lua
             LuaNative.lua_pushnumber(L, h.Normal.y);
             LuaNative.lua_pushnumber(L, h.Normal.z);
             return 9;
+        }
+
+        /// <summary>
+        /// Резолвит SpatialRuntime через первый Lua-аргумент (domainId).
+        /// </summary>
+        private static bool TryGetSpatial(IntPtr L, out SpatialRuntime spatial)
+        {
+            spatial = null;
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain)) return false;
+            if (!domain.HasSpatial) return false;
+            if (!SpatialDomainRegistry.TryGet(domain.SpatialDomainId, out var sd)) return false;
+            spatial = sd.StaticSpatial;
+            return spatial != null;
         }
 
         private static Vector3 ReadVector3(IntPtr L, int index)

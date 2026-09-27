@@ -28,7 +28,12 @@ namespace DCS.Lua
             ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 4);
 
             _results.Clear();
-            SpatialRuntime spatial = SpatialRuntime.Instance;
+            if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
+            {
+                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                return 1;
+            }
+            var spatial = sd.StaticSpatial;
             if (spatial != null)
                 spatial.QueryPoint(point, SpatialQueryFilter.ByType(type), _results);
 
@@ -44,7 +49,12 @@ namespace DCS.Lua
             ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
 
             _results.Clear();
-            SpatialRuntime spatial = SpatialRuntime.Instance;
+            if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
+            {
+                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                return 1;
+            }
+            var spatial = sd.StaticSpatial;
             if (spatial != null)
                 spatial.QueryRadius(center, radius, SpatialQueryFilter.ByType(type), _results);
 
@@ -58,9 +68,13 @@ namespace DCS.Lua
             Vector3 point = ReadVector3(L, 1);
             ushort ownerId = (ushort)LuaArgumentReader.ReadInt(L, 4);
             ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
-
-            bool contains = SpatialRuntime.Instance != null &&
-                            SpatialRuntime.Instance.Contains(point, ownerId, type);
+            if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
+            {
+                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                return 1;
+            }
+            var spatial = sd.StaticSpatial;
+            bool contains = spatial.Contains(point, ownerId, type);
 
             LuaNative.lua_pushboolean(L, contains ? 1 : 0);
             return 1;
@@ -74,7 +88,12 @@ namespace DCS.Lua
             float maxDist = LuaArgumentReader.ReadFloat(L, 7);
             ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 8);
 
-            SpatialRuntime spatial = SpatialRuntime.Instance;
+            if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
+            {
+                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                return 1;
+            }
+            var spatial = sd.StaticSpatial;
             if (spatial == null)
             {
                 LuaNative.lua_pushboolean(L, 0);

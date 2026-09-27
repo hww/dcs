@@ -36,7 +36,7 @@ namespace DCS.Lua
 
             Handle handle = pool.SystemAllocate(host, domain.HostChain);
             if (!handle.IsNull)
-                LuaManager.DeliverEventToLua(hostId, typeId, handle.Pack());
+                LuaManager.Current?.CallEventRouter(hostId, typeId, handle.Pack());
 
             return 0;
         }
@@ -109,7 +109,7 @@ namespace DCS.Lua
             Handle handle = new Handle(packedHandle);
             var pool = ComponentRegistry.Pools[eventTypeId];
             if (pool != null && pool.TryGetDenseIndex(handle, out _))
-                LuaManager.DeliverEventToLua(receiverHostId, eventTypeId, packedHandle);
+                LuaManager.Current?.CallEventRouter(receiverHostId, eventTypeId, packedHandle);
 
             return 0;
         }
