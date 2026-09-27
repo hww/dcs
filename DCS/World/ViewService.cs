@@ -1,6 +1,9 @@
+using DCS.Actors;
+using DCS.Core;
+using DCS.UnityUtils;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.World
 {
     public static class ViewService
     {

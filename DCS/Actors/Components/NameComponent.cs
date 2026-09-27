@@ -1,6 +1,7 @@
+using DCS.Core;
 using System;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Human-readable identifier for a Host.

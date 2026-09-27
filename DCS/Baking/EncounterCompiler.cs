@@ -1,15 +1,14 @@
 #if UNITY_EDITOR
-using DCS.Core;
-using DCS.Gameplay;
-using UnityEngine;
+using DCS.Authoring;
+using DCS.Data;
 
-namespace DCS.Core.Packing
+namespace DCS.Baking
 {
     public static class EncounterCompiler
     {
         public static bool TryCompile(
             Encounter encounter,
-            DCS.Gameplay.MapDataset dataset,
+            MapDataset dataset,
             ushort encounterId)
         {
             if (encounter == null || dataset == null)

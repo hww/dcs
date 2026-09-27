@@ -1,7 +1,7 @@
 using UnityEngine;
 
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Gameplay/Trigger")]
     public sealed class Trigger : BaseTrigger

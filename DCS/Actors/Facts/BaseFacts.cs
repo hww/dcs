@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 { 
 
     /// <summary>

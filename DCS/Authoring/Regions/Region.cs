@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Gameplay/Region")]
     public sealed class Region : BaseRegion

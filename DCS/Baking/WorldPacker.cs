@@ -1,13 +1,15 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using DCS.Core;
-using DCS.Interaction.Authoring;
-using DCS.Navigation.Authoring;
+using DCS.Authoring;
+using DCS.Navigation;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using DCS.Data;
+using DCS.Actors;
 
-namespace DCS.Gameplay.Build
+namespace DCS.Baking
 {
     public static class WorldPacker
     {

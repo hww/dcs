@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DCS.Core
+namespace DCS.World
 {
     /// <summary>
     /// Optional O(1) lookup by name.

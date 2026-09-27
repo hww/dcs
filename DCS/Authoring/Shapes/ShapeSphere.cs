@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Spatial/Shape Sphere")]
     public sealed class ShapeSphere : BaseShape

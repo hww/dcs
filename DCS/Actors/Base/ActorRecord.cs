@@ -2,7 +2,7 @@ using DCS.Spatial;
 using System;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Stable reference to an entry in ActorRegistry.

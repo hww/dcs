@@ -1,4 +1,4 @@
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Defines the lifetime scope for game facts (state data) within the game world.

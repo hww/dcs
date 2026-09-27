@@ -1,9 +1,9 @@
-﻿using DCS.Lua;
+using DCS.Lua;
 using System;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     public class Locator : BaseActor
     {

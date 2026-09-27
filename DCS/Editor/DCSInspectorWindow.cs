@@ -2,11 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using DCS.Actors;
 using DCS.Core;
 using UnityEditor;
 using UnityEngine;
 
-namespace DCS.EditorTools
+namespace DCS.Editor
 {
     /// <summary>
     /// Editor-инспектор DCS-хостов.

@@ -1,6 +1,8 @@
+using DCS.Actors;
+using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Spatial
 {
     public sealed class FastPoolPositionSource : IPositionSource
     {

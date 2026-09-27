@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using System.Collections.Generic;
-using DCS.Core;
+using DCS.Actors;
 
 namespace DCS.Tests.PlayMode
 {

@@ -1,10 +1,11 @@
 #if UNITY_EDITOR
-using DCS.Interaction.Authoring;
+using DCS.Authoring;
+using DCS.Data;
 using DCS.Spatial;
 using System;
 using UnityEngine;
 
-namespace DCS.Gameplay.Build
+namespace DCS.Baking
 {
     public static class GeometryCompiler
     {

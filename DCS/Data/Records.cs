@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace DCS.Gameplay
+namespace DCS.Data
 {
     [Serializable] public struct EncounterRecord { public ushort Id; public string Key; public string ScriptPath; public bool Enabled; public bool AutoStart; public string FactsJson; }
     [Serializable] public struct RegionRecord { public ushort Id; public ushort EncounterId; public ushort StrongPointId; public string Key; public bool Enabled; public int ShapeCount; public string FactsJson; }

@@ -3,7 +3,7 @@ using System;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     public interface IFactAccess
     {

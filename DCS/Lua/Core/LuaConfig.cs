@@ -1,4 +1,4 @@
-namespace DCS.Core
+namespace DCS.Lua
 {
     /// <summary>
     /// Configuration for the Lua entry point of a scene object.

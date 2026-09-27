@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DCS.Spatial;
 using DCS.Core;
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     public abstract class BaseRegion : MonoBehaviour
     {

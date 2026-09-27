@@ -1,6 +1,6 @@
 using DCS.Core;
 
-namespace DCS.Gameplay
+namespace DCS.Actors
 {
     /// <summary>
     /// Combat role assigned to an agent by the AI system.

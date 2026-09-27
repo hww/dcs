@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class SpatialBindings
     {

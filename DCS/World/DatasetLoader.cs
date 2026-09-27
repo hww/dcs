@@ -1,12 +1,12 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
-using DCS.Lua.Bindings;
-using DCS.Gameplay;
+using DCS.Lua;
+using DCS.Data;
 using DCS.Spatial;
 
-namespace DCS.Core
+namespace DCS.World
 {
     public static class DatasetLoader
     {

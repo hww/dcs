@@ -1,8 +1,9 @@
+using DCS.Actors;
 using DCS.Core;
 using System;
 using System.Runtime.InteropServices;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     /// <summary>
     /// Lua access to DynamicFacts userdata.

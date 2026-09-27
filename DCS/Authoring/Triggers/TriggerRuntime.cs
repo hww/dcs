@@ -1,7 +1,8 @@
 using UnityEngine;
 using DCS.Spatial;
+using DCS.Data;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     public sealed class TriggerRuntime
     {

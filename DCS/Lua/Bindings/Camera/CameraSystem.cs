@@ -1,4 +1,7 @@
-namespace DCS.Core
+using DCS.Actors;
+using DCS.Core;
+
+namespace DCS.Lua
 {
     /// <summary>
     /// Поиск камер по имени.

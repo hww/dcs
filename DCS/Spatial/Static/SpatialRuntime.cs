@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using DCS.Gameplay;
+using DCS.Data;
 using UnityEngine;
 
 namespace DCS.Spatial

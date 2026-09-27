@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Spatial/Shape Border")]
     public sealed class ShapeBorder : BaseShape

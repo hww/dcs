@@ -1,7 +1,7 @@
 // DCS.Core.ResourceLoader
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.UnityUtils
 {
     public static class ResourceLoader
     {

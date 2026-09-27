@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     /// <summary>Authored patrol/search loop. Runtime may sample or compile it.</summary>
     [AddComponentMenu("DCS/Gameplay/Patrol Path")]

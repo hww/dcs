@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DCS.Lua;
 
-namespace DCS.Core
+namespace DCS.Lua
 {
     public delegate bool RefFieldGetter<T>(ref T instance, string fieldName, IntPtr L) where T : struct;
     public delegate bool RefFieldSetter<T>(ref T instance, string fieldName, IntPtr L) where T : struct;

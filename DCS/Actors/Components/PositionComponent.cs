@@ -1,6 +1,7 @@
+using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Single source of truth for world position.

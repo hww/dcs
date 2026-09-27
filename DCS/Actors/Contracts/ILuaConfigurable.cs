@@ -1,9 +1,10 @@
+using DCS.Lua;
 using DCS.Spatial;
 using System;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Contract for any object that carries a Lua entry point configuration.

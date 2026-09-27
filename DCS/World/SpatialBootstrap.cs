@@ -1,8 +1,9 @@
+using DCS.Actors;
 using DCS.Core;
 using DCS.Spatial;
 using UnityEngine;
 
-namespace DCS.Gameplay
+namespace DCS.World
 {
     public sealed class SpatialBootstrap : MonoBehaviour
     {

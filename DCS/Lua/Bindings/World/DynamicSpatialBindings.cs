@@ -1,11 +1,12 @@
 using DCS.Core;
-using DCS.Gameplay;
 using DCS.Spatial;
+using DCS.Spatial;
+using DCS.World;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     /// <summary>
     /// Queries over DynamicSpatial (runtime, moving hosts).

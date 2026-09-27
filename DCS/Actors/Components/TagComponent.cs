@@ -1,6 +1,7 @@
+using DCS.Core;
 using System;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Bitmask of tags. 32 tags max is usually enough; if you need more,

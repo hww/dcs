@@ -1,7 +1,7 @@
-using DCS.Interaction.Authoring;
+using DCS.Authoring;
 using UnityEngine;
 
-namespace DCS.Navigation.Authoring
+namespace DCS.Navigation
 {
     public enum NavigationSurfaceType : byte
     {

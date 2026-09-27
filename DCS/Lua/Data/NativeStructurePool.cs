@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Data
+namespace DCS.Lua
 {
 
     // Универсальный пул для нативных структур (Векторов, Кватернионов и т.д.)

@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using AOT;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     /// <summary>
     /// Биндинги для инфраструктуры Lua-runtime.

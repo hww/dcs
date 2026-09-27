@@ -1,8 +1,7 @@
 using UnityEngine;
-using DCS.Gameplay;
-using DCS.Interaction.Authoring;
+using DCS.Authoring;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Gameplay/Strong Point")]
     public sealed class StrongPoint : BaseProxy

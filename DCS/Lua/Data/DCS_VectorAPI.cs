@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace DCS.Data
+namespace DCS.Lua
 {
     public static class DCS_VectorAPI
     {

@@ -1,8 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     /// <summary>
     /// Base class for a component in the game

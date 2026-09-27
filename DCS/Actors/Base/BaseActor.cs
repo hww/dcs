@@ -1,10 +1,11 @@
-﻿using DCS.Lua;
+using DCS.Core;
+using DCS.Lua;
 using DCS.Spatial;
 using System;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     public abstract class BaseActor : MonoBehaviour,
                                  IFieldAccess, IFactAccess, IHostReference,
@@ -66,6 +67,8 @@ namespace DCS.Core
 
         public bool IsSearchable =>
             !string.IsNullOrEmpty(_searchName) || SearchTags.Length > 0;
+
+        public bool IsAlive => this != null && gameObject != null;
 
         // ==================== Life Cycle ====================
         public virtual void Birth()

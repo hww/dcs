@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     /// <summary>
     /// Queries over SpatialRuntime (baked static geometry from MapDataset).

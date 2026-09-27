@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Navigation.Authoring
+namespace DCS.Navigation
 {
     public enum TraversalLinkType : byte
     {

@@ -1,11 +1,11 @@
 #if UNITY_EDITOR
-using DCS.Gameplay;
-using DCS.Interaction.Authoring;
-using DCS.Navigation.Authoring;
+using DCS.Data;
+using DCS.Authoring;
+using DCS.Navigation;
 using DCS.Spatial;
 using UnityEngine;
 
-namespace DCS.Gameplay.Build
+namespace DCS.Baking
 {
     public static class SceneMarkupCompiler
     {

@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     public enum TriggerMode : byte
     {

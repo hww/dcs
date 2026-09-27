@@ -1,6 +1,7 @@
+using DCS.Data;
 using System;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     public enum EncounterState : byte
     {

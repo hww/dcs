@@ -1,8 +1,9 @@
+using DCS.Core;
 using DCS.Spatial;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.World
 {
     /// <summary>
     /// Thin facade over HostManager + NameIndex + TagIndex + DynamicSpatial.

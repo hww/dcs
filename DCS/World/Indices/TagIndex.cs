@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace DCS.Core
+namespace DCS.World
 {
     /// <summary>
     /// Derived index: tag bit -> list of hostIds.

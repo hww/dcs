@@ -3,7 +3,7 @@ using System;
 using System.Text;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     /// <summary>
     /// Contract for any object that can be found via the actor registry.

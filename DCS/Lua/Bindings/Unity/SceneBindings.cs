@@ -1,10 +1,12 @@
 using System;
+using DCS.Actors;
 using DCS.Core;
 using DCS.Spatial;
+using DCS.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class SceneBindings
     {

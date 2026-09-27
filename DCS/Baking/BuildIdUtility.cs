@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-namespace DCS.Gameplay.Build
+namespace DCS.Baking
 {
     public static class BuildIdUtility
     {

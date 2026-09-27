@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEditor.Animations;
 #endif
 
-namespace DCS.Core
+namespace DCS.UnityUtils
 {
     /// <summary>
     /// Search an animation nu mame

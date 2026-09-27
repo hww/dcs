@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     [RequireComponent(typeof(CameraActor))]
     public class BaseCamera : BaseActor

@@ -1,7 +1,9 @@
 using UnityEngine;
 using DCS.Spatial;
+using DCS.Data;
+using DCS.Authoring;
 
-namespace DCS.Gameplay
+namespace DCS.World
 {
     /// <summary>
     /// Coordinates runtime gameplay systems for the currently loaded MapDataset.

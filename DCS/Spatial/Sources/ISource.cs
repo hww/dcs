@@ -1,9 +1,7 @@
-using DCS.Spatial;
-using System;
-using System.Text;
+using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Spatial
 {
     public interface IPositionSource
     {

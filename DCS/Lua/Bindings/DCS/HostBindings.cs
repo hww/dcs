@@ -1,9 +1,10 @@
 using DCS.Core;
+using DCS.World;
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class HostBindings
     {

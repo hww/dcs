@@ -1,4 +1,4 @@
-namespace DCS.Gameplay
+namespace DCS.Actors
 {
     /// <summary>Runtime AI roles described in the Uncharted 4 talk. Not scene authoring objects.</summary>
     public enum CombatRole : byte

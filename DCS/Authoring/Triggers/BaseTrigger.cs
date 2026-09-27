@@ -1,8 +1,7 @@
 using UnityEngine;
-using DCS.Gameplay;
 using DCS.Core;
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     public abstract class BaseTrigger : MonoBehaviour
     {

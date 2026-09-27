@@ -1,6 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Reflection;
-using UnityEngine;
 using System.Runtime.InteropServices;
 
 namespace DCS.Core
@@ -178,23 +176,23 @@ namespace DCS.Core
             Invalidate(host);
         }
 
-        public static BaseActor GetActor(Handle handle)
+        public static IHostReference GetActor(Handle handle)
         {
             int id = handle.Id;
-            if (id >= MaxGameObjects || GlobalHosts[id].Generation != handle.Generation) return null;
+            if (id >= MaxGameObjects || GlobalHosts[id].Generation != handle.Generation)
+                return null;
 
             ref GCHandle gch = ref _actorHandles[id];
-            if (gch.IsAllocated)
-            {
-                BaseActor actor = gch.Target as BaseActor;
+            if (!gch.IsAllocated) return null;
 
-                // Безопасность (Пункт 2): Если Unity удалила объект, C# вернет null,
-                // но программа не упадет и память не деградирует!
-                if (actor != null && actor.gameObject != null)
-                    return actor;
-            }
-            return null;
+            IHostReference actor = gch.Target as IHostReference;
+            if (actor == null) return null;
+
+            // Delegate liveness to the implementation. Core doesn't know about Unity.
+            if (!actor.IsAlive) return null;
+            return actor;
         }
+
         /// <summary>
         /// Connect the GameObject to the HostId
         /// </summary>
@@ -223,7 +221,7 @@ namespace DCS.Core
             ref GCHandle gch = ref _actorHandles[id];
             if (gch.IsAllocated)
             {
-                BaseActor actor = gch.Target as BaseActor;
+                IHostReference actor = gch.Target as IHostReference;
                 if (actor != null)
                 {
                     actor.UnlinkFromHost();

@@ -1,11 +1,11 @@
 #if UNITY_EDITOR
-using DCS.Gameplay;
-using DCS.Gameplay.Build;
-using DCS.Interaction.Authoring;
+using DCS.Data;
+using DCS.Baking;
+using DCS.Authoring;
 using DCS.Spatial;
 
 
-namespace DCS.Core.Packing
+namespace DCS.Baking
 {
     public static class TriggerCompiler
     {

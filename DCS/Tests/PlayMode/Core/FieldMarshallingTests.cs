@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using DCS.Core;
 using DCS.Lua;
-using DCS.Lua.Bindings;
+using DCS.Lua;
 using System;
 
 namespace DCS.Tests.PlayMode

@@ -1,9 +1,9 @@
 using DCS.Core;
-using DCS.Gameplay;
+using DCS.Actors;
 using System;
 using System.Runtime.InteropServices;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class AIBindings
     {

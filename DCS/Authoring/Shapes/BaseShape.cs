@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Interaction.Authoring
+namespace DCS.Authoring
 {
     /// <summary>
     /// Authoring-only spatial shape.

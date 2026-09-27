@@ -1,10 +1,11 @@
 using DCS.Core;
 using DCS.Spatial;
+using DCS.World;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     /// <summary>
     /// Semantic search over Hosts by name / tag / type.

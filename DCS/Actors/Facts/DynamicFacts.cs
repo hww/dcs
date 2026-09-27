@@ -1,9 +1,9 @@
-﻿using DCS.Lua;
+using DCS.Lua;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DCS.Core
+namespace DCS.Actors
 {
     [Serializable]
     public class DynamicFacts : BaseFacts, ISerializationCallbackReceiver

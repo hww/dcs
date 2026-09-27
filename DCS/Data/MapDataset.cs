@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using DCS.Spatial;
 using UnityEngine;
 
-namespace DCS.Gameplay
+namespace DCS.Data
 {
     [CreateAssetMenu(fileName = "NewMapDataset", menuName = "DCS/World/Map Dataset")]
     public sealed class MapDataset : ScriptableObject

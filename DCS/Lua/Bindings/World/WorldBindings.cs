@@ -1,6 +1,6 @@
 using System;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class WorldBindings
     {

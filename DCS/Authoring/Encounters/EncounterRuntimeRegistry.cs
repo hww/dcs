@@ -1,6 +1,7 @@
+using DCS.Data;
 using System.Collections.Generic;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     public sealed class EncounterRuntimeRegistry
     {

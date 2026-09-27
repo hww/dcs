@@ -1,7 +1,8 @@
+using DCS.Actors;
 using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Gameplay
+namespace DCS.Authoring
 {
     [AddComponentMenu("DCS/Gameplay/Encounter")]
     public sealed class Encounter : BaseActor

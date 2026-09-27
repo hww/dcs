@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using AOT;
 using DCS.Data;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class VectorBindings
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace DCS.Lua.Bindings
+namespace DCS.Lua
 {
     public static class LuaBindings
     {
