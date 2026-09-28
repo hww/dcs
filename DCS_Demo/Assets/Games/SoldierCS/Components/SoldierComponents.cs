@@ -2,7 +2,7 @@ using DCS.Actors;
 using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Game.Soldiers
+namespace DCS.Game.SoldierCS
 {
     public enum ELocomotion
     {
@@ -16,26 +16,7 @@ namespace DCS.Game.Soldiers
         Combat = 0,
         Guard = 1
     }
-
-    [ComponentPool(1000)]
-    public struct SoldierTag : IComponent
-    {
-        public int RosterIndex { get; set; }
-    }
-
-    [ComponentPool(1000)]
-    public struct PlayerTag : IComponent
-    {
-        public int RosterIndex { get; set; }
-    }
-
-    [ComponentPool(1000)]
-    public struct PositionComponent : IComponent
-    {
-        public int RosterIndex { get; set; }
-        public Vector3 Value;
-    }
-
+ 
     [ComponentPool(1000)]
     public struct VelocityComponent : IComponent
     {

@@ -78,6 +78,7 @@ namespace DCS.Core
             return ref ComponentRegistry.GetPool<T>().ResolveHandle(handle);
         }
 
+
         /// <summary>
         /// Frees a component and removes it from the host's chain.
         /// </summary>
@@ -89,6 +90,7 @@ namespace DCS.Core
         {
             ComponentRegistry.GetPool<T>().Free(hostHandle, chain, ref handle);
         }
+
 
         /// <summary>
         /// Frees all components of a host.

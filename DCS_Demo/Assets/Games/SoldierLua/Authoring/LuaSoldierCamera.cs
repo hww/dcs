@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.LuaSoldier
+namespace DCS.Game.SoldierLua
 {
     /// <summary>
     /// Third-person камера. Мышь крутит, идёт за таргетом.

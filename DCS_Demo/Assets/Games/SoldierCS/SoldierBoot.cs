@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Game.SoldierLua
+namespace DCS.Game.SoldierCS
 {
     /// <summary>
     /// Boot игры SoldierCS.
@@ -13,11 +13,11 @@ namespace DCS.Game.SoldierLua
     /// Boot НЕ вызывает Root.Update() — Root сам MonoBehaviour,
     /// Unity вызывает его Update.
     /// </summary>
-    public sealed class LuaSoldierBoot : MonoBehaviour
+    public sealed class SoldierBoot : MonoBehaviour
     {
         private void OnEnable()
         {
-            LuaSoldierRoot.Ensure();
+            SoldierRoot.Ensure();
         }
     }
 }

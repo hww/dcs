@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 267e1a2c4d6055b48871df57e26fdbb6, type: 3}
+  m_Name: SoldierLua_dataset
+  m_EditorClassIdentifier: DCS.Framework::DCS.Data.MapDataset
+  MapName: SoldierLua
+  Encounters:
+  - Id: 45910
+    Key: 
+    ScriptPath: 
+    Enabled: 1
+    AutoStart: 0
+    FactsJson: '{}'
+  - Id: 46314
+    Key: 
+    ScriptPath: 
+    Enabled: 1
+    AutoStart: 0
+    FactsJson: '{}'
+  StrongPoints: []
+  Regions:
+  - Id: 45912
+    EncounterId: 45910
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 1
+    FactsJson: '{}'
+  - Id: 58846
+    EncounterId: 46314
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 1
+    FactsJson: '{}'
+  Triggers: []
+  NavigationSurfaces: []
+  TraversalLinks: []
+  PatrolPaths: []
+  PatrolPoints: []
+  Posts: []
+  Spawners:
+  - HostId: 0
+    Position: {x: 0, y: 0, z: 0}
+    EntityClass: 
+  - HostId: 0
+    Position: {x: 10, y: 0, z: 0}
+    EntityClass: 
+  - HostId: 0
+    Position: {x: -10, y: 0, z: 0}
+    EntityClass: 
+  Locators: []
+  SpatialProxies:
+  - SpatialId: 0
+    OwnerId: 45912
+    ObjectType: 1
+    Geometry:
+      Type: 3
+      Index: 0
+    AABBMin: {x: 9, y: 0, z: -1}
+    AABBMax: {x: 11, y: 2, z: 1}
+  - SpatialId: 1
+    OwnerId: 58846
+    ObjectType: 1
+    Geometry:
+      Type: 3
+      Index: 1
+    AABBMin: {x: -11, y: 0, z: -1}
+    AABBMax: {x: -9, y: 2, z: 1}
+  Spheres: []
+  Boxes: []
+  Cylinders: []
+  Polygons:
+  - StartIndex: 0
+    PointCount: 4
+    MinY: 0
+    MaxY: 2
+    Closed: 1
+  - StartIndex: 4
+    PointCount: 4
+    MinY: 0
+    MaxY: 2
+    Closed: 1
+  PolygonPoints:
+  - {x: 9, y: 1, z: -1}
+  - {x: 9, y: 1, z: 1}
+  - {x: 11, y: 1, z: 1}
+  - {x: 11, y: 1, z: -1}
+  - {x: -11, y: 1, z: -1}
+  - {x: -11, y: 1, z: 1}
+  - {x: -9, y: 1, z: 1}
+  - {x: -9, y: 1, z: -1}

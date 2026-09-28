@@ -2,36 +2,11 @@ using DCS.Actors;
 using DCS.Core;
 using UnityEngine;
 
-namespace DCS.LuaSoldier
+namespace DCS.Game.SoldierLua
 {
-    // ============================================================
-    //  МАРКЕРЫ
-    // ============================================================
-
-    /// <summary>Маркер: этот хост — солдат (управляемый персонаж).</summary>
-    [ComponentPool(1000)]
-    public struct SoldierTag : IComponent
-    {
-        public int RosterIndex { get; set; }
-    }
-
-    /// <summary>Маркер: игрок (управляется мышью/клавиатурой).</summary>
-    [ComponentPool(100)]
-    public struct PlayerTag : IComponent
-    {
-        public int RosterIndex { get; set; }
-    }
-
     // ============================================================
     //  ПОЗИЦИЯ И ВИД
     // ============================================================
-
-    [ComponentPool(1000)]
-    public struct PositionComponent : IComponent
-    {
-        public int RosterIndex { get; set; }
-        public Vector3 Value;
-    }
 
     [ComponentPool(1000)]
     public struct VelocityComponent : IComponent

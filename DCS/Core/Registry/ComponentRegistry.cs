@@ -68,10 +68,6 @@ namespace DCS.Core
         /// <summary>Number of registered event types.</summary>
         public static int PollTypesCount = 0;
 
-        public static readonly FastSparseTable GroupTable =
-            new FastSparseTable(HostManager.MaxGameObjects);
-
-        private static readonly object[] _fastPools = new object[MaxComponentTypes];
 
         /// <summary>
         /// Initializes all pools by scanning assemblies for DcsPoolAttribute.
@@ -221,36 +217,6 @@ namespace DCS.Core
             }
 
             return string.Empty;
-        }
-
-
-        public static int RegisterFastPool<T>(int capacity = 4096) where T : struct, IComponent
-        {
-            int id = ComponentType<T>.Id;
-            if (_fastPools[id] == null)
-            {
-                _fastPools[id] = new FastPool<T>(GroupTable, capacity, id);
-            }
-            return id;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static FastPool<T> GetFastPool<T>() where T : struct, IComponent
-        {
-            int id = ComponentType<T>.Id;
-            var pool = _fastPools[id] as FastPool<T>;
-            if (pool == null)
-                throw new InvalidOperationException(
-                    $"FastPool<{typeof(T).Name}> not registered. " +
-                    $"Call ComponentRegistry.RegisterFastPool<{typeof(T).Name}>() first.");
-            return pool;
-        }
-
-        public static bool TryGetFastPool<T>(out FastPool<T> pool) where T : struct, IComponent
-        {
-            int id = ComponentType<T>.Id;
-            pool = _fastPools[id] as FastPool<T>;
-            return pool != null;
         }
     }
 }

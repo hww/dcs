@@ -28,15 +28,16 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Load(IntPtr L)
         {
-            string name = LuaArgumentReader.ReadString(L, 1);
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
+                return 0;
+            string name = LuaArgumentReader.ReadString(L, 2);
             if (string.IsNullOrEmpty(name)) return 0;
-
-            bool withActors = LuaNative.lua_gettop(L) < 2
-                || LuaArgumentReader.ReadBool(L, 2);
+            bool withActors = LuaNative.lua_gettop(L) < 3
+                || LuaArgumentReader.ReadBool(L, 3);
 
             DatasetLoader.StreamMapAsync(name, SceneStreamRunner.Instance, dataset =>
             {
-                if (withActors) RegisterSceneActors(name);
+                if (withActors) RegisterSceneActors(domain, name);
             });
             return 0;
         }
@@ -122,8 +123,13 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RegisterActors(IntPtr L)
         {
-            string name = LuaArgumentReader.ReadString(L, 1);
-            int count = RegisterSceneActors(name);
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
+            {
+                LuaNative.lua_pushinteger(L, 0);
+                return 1;
+            }
+            string name = LuaArgumentReader.ReadString(L, 2);
+            int count = RegisterSceneActors(domain, name);
             LuaNative.lua_pushinteger(L, count);
             return 1;
         }
@@ -134,7 +140,7 @@ namespace DCS.Lua
             return 0;
         }
 
-        private static int RegisterSceneActors(string sceneName)
+        private static int RegisterSceneActors(Domain domain, string sceneName)
         {
             Scene scene = string.IsNullOrEmpty(sceneName)
                 ? SceneManager.GetActiveScene()
@@ -142,9 +148,6 @@ namespace DCS.Lua
 
             if (!scene.IsValid() || !scene.isLoaded)
                 return 0;
-
-            var posPool = ComponentRegistry.GetFastPool<PositionComponent>();
-            var namePool = ComponentRegistry.GetFastPool<NameComponent>();
 
             BaseActor[] actors = UnityEngine.Object.FindObjectsByType<BaseActor>();
             int registered = 0;
@@ -158,17 +161,19 @@ namespace DCS.Lua
                 Host host = actor.Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                posPool.TryAllocate(host, out _);
-                ref var pos = ref posPool.Resolve(host);
+                // PositionComponent — через обычный ComponentPool.
+                Handle hPos = DCSystem.Allocate<PositionComponent>(host, domain.HostChain);
+                ref var pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
                 pos.Position = actor.transform.position;
 
+                // NameComponent — через обычный ComponentPool.
                 string actorName = string.IsNullOrEmpty(actor.SearchName)
                     ? actor.name
                     : actor.SearchName;
                 if (!string.IsNullOrEmpty(actorName))
                 {
-                    namePool.TryAllocate(host, out _);
-                    ref var nameComp = ref namePool.Resolve(host);
+                    Handle hName = DCSystem.Allocate<NameComponent>(host, domain.HostChain);
+                    ref var nameComp = ref DCSystem.ResolveHandle<NameComponent>(hName);
                     nameComp.Name = actorName;
                 }
 

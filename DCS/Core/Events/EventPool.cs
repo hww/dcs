@@ -36,8 +36,7 @@ namespace DCS.Core
         {
         }
 
-        public int EventPartition => throw new System.NotImplementedException();
-
+        public int EventPartition => Partition;
         /// <summary>
         /// Allocates a new event component.
         /// </summary>

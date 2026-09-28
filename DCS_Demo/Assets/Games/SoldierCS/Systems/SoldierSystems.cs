@@ -1,7 +1,8 @@
+using DCS.Actors;
 using DCS.Core;
 using UnityEngine;
 
-namespace DCS.Game.Soldiers
+namespace DCS.Game.SoldierCS
 {
     // ============================================================
     //  PLAYER INPUT — Legacy Input → InputComponent
@@ -69,7 +70,7 @@ namespace DCS.Game.Soldiers
                 Host host = inputPool.Roster[input.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
@@ -89,7 +90,7 @@ namespace DCS.Game.Soldiers
                     worldMove = worldMove.normalized;
 
                 vel.Value = worldMove * RunSpeed;
-                pos.Value += vel.Value * dt;
+                pos.Position += vel.Value * dt;
 
                 // Локомоция
                 float speedSq = worldMove.sqrMagnitude;
@@ -121,7 +122,7 @@ namespace DCS.Game.Soldiers
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 Handle hCombat = DCSystem.Get<CombatStateComponent>(host, chain);
@@ -155,7 +156,7 @@ namespace DCS.Game.Soldiers
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
@@ -168,7 +169,7 @@ namespace DCS.Game.Soldiers
                 Transform t = view.Actor.transform;
                 if (t == null) continue;
 
-                t.position = pos.Value;
+                t.position = pos.Position;
                 t.rotation = Quaternion.Euler(0f, input.LookYaw, 0f);   // <-- ПОВОРОТ
             }
         }

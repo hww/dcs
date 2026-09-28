@@ -1,7 +1,8 @@
+using DCS.Actors;
 using DCS.Core;
 using UnityEngine;
 
-namespace DCS.LuaSoldier
+namespace DCS.Game.SoldierLua
 {
     // ============================================================
     //  KEYBOARD INPUT — читает клавиатуру, пишет в KeyboardInputComponent
@@ -72,7 +73,7 @@ namespace DCS.LuaSoldier
                 Host host = posPool.Roster[pos.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 // Смотрим, какой input-компонент есть на хосте
@@ -114,7 +115,7 @@ namespace DCS.LuaSoldier
                 Vector3 worldMove = camForward * forward + camRight * strafe;
                 if (worldMove.sqrMagnitude > 1f) worldMove = worldMove.normalized;
 
-                pos.Value += worldMove * RunSpeed * dt;
+                pos.Position += worldMove * RunSpeed * dt;
             }
         }
     }
@@ -138,7 +139,7 @@ namespace DCS.LuaSoldier
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 Animator animator = view.Actor.Animator;
@@ -181,7 +182,7 @@ namespace DCS.LuaSoldier
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<SoldierTag>(host, chain);
+                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
                 if (hTag.IsNull) continue;
 
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
@@ -192,7 +193,7 @@ namespace DCS.LuaSoldier
                 Transform t = view.Actor.transform;
                 if (t == null) continue;
 
-                t.position = pos.Value;
+                t.position = pos.Position;
 
                 Handle hLook = DCSystem.Get<LookComponent>(host, chain);
                 if (!hLook.IsNull)

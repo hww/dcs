@@ -4,63 +4,56 @@ using DCS.Lua;
 using DCS.Spatial;
 using UnityEngine;
 
-namespace DCS.SoldierCS
+namespace DCS.Game.SoldierLua
 {
     /// <summary>
-    /// Root игры SoldierCS.
-    ///
-    /// Root — это "балансировщик": он решает, в каком порядке и с какой частотой
-    /// обновлять системы. Хардкод в Update() — это правильно, потому что порядок
-    /// вызовов и аргументы видны глазами, а не собираются динамически.
-    ///
-    /// Root владеет:
-    /// - Domain (ECS-контекст)
-    /// - SpatialDomainId (пространственный контекст)
-    /// - DCSTime (точка правды по времени; может быть несколько экземпляров)
-    /// - подсистемами (обычные C#-классы)
+    /// Root игры SoldierLua.
+    /// То же, что SoldierRoot, но с LuaManager как подсистемой.
     /// </summary>
-    public sealed class SoldierRoot : MonoBehaviour
+    public sealed class LuaSoldierRoot : MonoBehaviour
     {
         // --- Singleton ---
-        private static SoldierRoot _instance;
-        public static SoldierRoot Instance => _instance;
+        private static LuaSoldierRoot _instance;
+        public static LuaSoldierRoot Instance => _instance;
 
-        public static SoldierRoot Ensure()
+        public static LuaSoldierRoot Ensure()
         {
             if (_instance != null) return _instance;
 
-            var go = new GameObject("[SoldierRoot]");
+            var go = new GameObject("[LuaSoldierRoot]");
             DontDestroyOnLoad(go);
-            _instance = go.AddComponent<SoldierRoot>();
+            _instance = go.AddComponent<LuaSoldierRoot>();
             _instance.Initialize();
             return _instance;
         }
 
+        [Header("Prefab")]
+        public GameObject SoldierPrefab;
+
+        [Header("Spawn")]
+        public int SoldierCount = 1;
+        public Vector3 SpawnOrigin = Vector3.zero;
+        public float SpawnSpacing = 2f;
+
+        [Header("Lua")]
+        public bool EnableRepl = true;
+        public int ReplPort = 49155;
+
         // --- Contexts ---
         public Domain Domain { get; private set; }
-        public int SpatialDomainId { get; private set; } = DCS.Core.Domain.NoSpatial;
+        public int SpatialDomainId { get; private set; } = Domain.NoSpatial;
 
         // --- Time ---
-        /// <summary>Обновляется каждый кадр. Используют обычные системы.</summary>
         public DCSTime TimeFrame { get; private set; }
 
-        /// <summary>Обновляется каждый второй кадр. Используют дорогие системы.</summary>
-        public DCSTime TimeHalfFrame { get; private set; }
-
-        /// <summary>Не зависит от TimeScale. Для UI, музыка, метрики.</summary>
-        public DCSTime TimeUnscaled { get; private set; }
-
         // --- Subsystems ---
-        // private InputSystem _input;
-        // private MovementSystem _movement;
-        // private AnimationSystem _animation;
-        // private TransformSyncSystem _transformSync;
+        private LuaManager _lua;
+        private SpatialUpdateSystem _spatialUpdate;
 
         // --- Internal ---
         private bool _initialized;
-        private int _frameCounter;
-
-        private LuaManager _lua;
+        private int _soldierCounter;
+        private Host _playerHost;
 
         private void Awake()
         {
@@ -86,45 +79,44 @@ namespace DCS.SoldierCS
 
             // 1. Time
             TimeFrame = new DCSTime();
-            TimeHalfFrame = new DCSTime();
-            TimeUnscaled = new DCSTime();
 
             // 2. Domain
-            Domain = DomainRegistry.Create("SoldierGame");
+            Domain = DomainRegistry.Create("SoldierLuaGame");
 
-            // 3. SpatialDomain
-            var posSource = new FastPoolPositionSource(
-                ComponentRegistry.GetFastPool<PositionComponent>());
-            var nameSource = new FastPoolNameSource(
-                ComponentRegistry.GetFastPool<NameComponent>());
-            var tagSource = new FastPoolTagSource(
-                ComponentRegistry.GetFastPool<TagComponent>());
+            // 3. ComponentPool'ы
+            ComponentRegistry.InitializeAllPools();
 
+            // 4. SpatialDomain
             SpatialDomainId = SpatialDomainRegistry.Create(
-                posSource, nameSource, tagSource,
                 gridWidth: 16, gridHeight: 16, gridDepth: 16,
-                cellSize: 12.5f, radius: 0.5f);
-
+                cellSize: 12.5f);
             Domain.AttachSpatial(SpatialDomainId);
 
-            // 4. Subsystems
-            // _input = new InputSystem();
-            // _movement = new MovementSystem();
-            // _animation = new AnimationSystem();
-            // _transformSync = new TransformSyncSystem();
-            //
-            // _input.Init(Domain);
-            // _movement.Init(Domain);
-            // _animation.Init(Domain);
-            // _transformSync.Init(Domain);
+            var spatialDomain = SpatialDomainRegistry.Get(SpatialDomainId);
+            _spatialUpdate = new SpatialUpdateSystem(
+                spatialDomain.DynamicSpatial,
+                ComponentRegistry.GetPool<PositionComponent>(),
+                radius: 0.5f);
+
+            // 5. Lua
+            _lua = new LuaManager();
+            _lua.Initialize(new LuaManagerConfig
+            {
+                LuaRootPath = System.IO.Path.Combine(
+                    Application.streamingAssetsPath, "Lua").Replace("\\", "/"),
+                EnableRepl = EnableRepl,
+                ReplPort = ReplPort
+            });
+
+            // 6. Spawn
+            for (int i = 0; i < SoldierCount; i++)
+                SpawnSoldier(i == 0);
         }
 
         private void Deinitialize()
         {
-            // _input?.Deinit();
-            // _movement?.Deinit();
-            // _animation?.Deinit();
-            // _transformSync?.Deinit();
+            _lua?.Deinitialize();
+            _lua = null;
 
             if (Domain != null && Domain.HasSpatial)
             {
@@ -133,48 +125,88 @@ namespace DCS.SoldierCS
             }
         }
 
-        private void Update()
+        private void SpawnSoldier(bool isPlayer)
         {
-            // 1. Time — обновляем экземпляры с их частотой.
-            TimeFrame.Update();
-            TimeUnscaled.Update();
-            if ((_frameCounter & 1) == 0)
-                TimeHalfFrame.Update();
+            int index = _soldierCounter++;
 
-            // 2. Ранние системы (ввод и т.п.)
-            // _input.Update(Domain, TimeFrame);
+            Vector3 pos = SpawnOrigin + new Vector3(index * SpawnSpacing, 0f, 0f);
+            GameObject go = Instantiate(SoldierPrefab, pos, Quaternion.identity);
+            go.name = isPlayer ? "Player" : $"Soldier_{index}";
 
-            // 3. Логика (каждый кадр)
-            // _movement.Update(Domain, TimeFrame);
-            // _animation.Update(Domain, TimeFrame);
+            Actor actor = go.GetComponentInChildren<Actor>();
 
-            // 4. Логика (раз в 2 кадра — балансировка Root'ом)
-            // _ai.Update(Domain, TimeHalfFrame);
+            Host host = HostManager.CreateHost();
+            HostManager.LinkHostReference(host, go.GetComponent<IHostReference>());
 
-            // 5. Spatial — после всех, кто двигает.
-            if (Domain.HasSpatial &&
-                SpatialDomainRegistry.TryGet(Domain.SpatialDomainId, out var spatial))
-            {
-                spatial.Update();
-            }
+            // PositionComponent — общий (DCS.Actors).
+            Handle hPos = DCSystem.Allocate<PositionComponent>(host, Domain.HostChain);
+            ref var posComp = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
+            posComp.Position = pos;
+            posComp.Rotation = Quaternion.identity;
 
-            // Доставка событий через Lua.
-            EventSystem.DeliverAll(Domain, Dispatch);  // новое
+            // NameComponent — общий.
+            Handle hName = DCSystem.Allocate<NameComponent>(host, Domain.HostChain);
+            ref var nameComp = ref DCSystem.ResolveHandle<NameComponent>(hName);
+            nameComp.Name = isPlayer ? "Player" : $"Soldier_{index}";
 
-            // 6. Синхронизация с Transform.
-            // _transformSync.Update(Domain, TimeFrame);
+            // TagComponent — общий.
+            Handle hTag = DCSystem.Allocate<TagComponent>(host, Domain.HostChain);
+            ref var tagComp = ref DCSystem.ResolveHandle<TagComponent>(hTag);
+            tagComp.Mask = isPlayer ? (1u << 0) : (1u << 1);
 
-            _frameCounter++;
+            // ViewComponent — из SoldierLua.
+            Handle hView = DCSystem.Allocate<ViewComponent>(host, Domain.HostChain);
+            ref ViewComponent view = ref DCSystem.ResolveHandle<ViewComponent>(hView);
+            view.Actor = actor;
+
+            // VelocityComponent — из SoldierLua.
+            Handle hVel = DCSystem.Allocate<VelocityComponent>(host, Domain.HostChain);
+            ref VelocityComponent vel = ref DCSystem.ResolveHandle<VelocityComponent>(hVel);
+            vel.Value = Vector3.zero;
+
+            // Анимация — зависит от того, на земле или нет.
+            // Для примера — GroundedAnimationComponent.
+            Handle hAnim = DCSystem.Allocate<GroundedAnimationComponent>(host, Domain.HostChain);
+            ref GroundedAnimationComponent anim = ref DCSystem.ResolveHandle<GroundedAnimationComponent>(hAnim);
+            anim.Locomotion = 0;  // idle
+            anim.Combat = 0;      // combat
+
+            if (isPlayer)
+                _playerHost = host;
         }
 
+        private void Update()
+        {
+            // 1. Time
+            TimeFrame.Update();
+
+            // 2. Lua — корутины, каждый кадр.
+            _lua?.Update();
+
+            // 3. Ранние системы.
+            // PlayerInputSystem.Update(_playerHost, Domain.HostChain, Camera);
+            // MovementSystem.Update(Domain.HostChain, null, TimeFrame.DeltaTime);
+
+            // 4. Spatial.
+            _spatialUpdate.Update();
+
+            // 5. Доставка событий — Lua + C#.
+            EventSystem.DeliverAll(Domain, Dispatch);
+
+            // 6. Синхронизация с Transform.
+            // TransformSyncSystem.Update(Domain.HostChain);
+        }
 
         private void Dispatch(in SubscriptionNode sub, Host sender, int eventTypeId, Handle messageHandle)
         {
+            // Lua-путь: подписчик — SubscriptionNode.
             if (sub.ProcessTypeId == ComponentType<SubscriptionNode>.Id)
             {
                 _lua?.CallEventRouter(sender.Id, eventTypeId, messageHandle.Pack());
                 return;
             }
+
+            // C#-путь: подписчик — компонент, реализующий IMessageReceiver.
             var pool = ComponentRegistry.Pools[sub.ProcessTypeId];
             pool?.SystemDeliver(sub.ProcessHandle.Id, eventTypeId, messageHandle);
         }

@@ -128,9 +128,9 @@ namespace DCS.Core
             uint crc4 = Get(testBytes.AsSpan());            // 0x4A17B156
 
             if (crc1 == crc2 && crc1 == crc3 && crc1 == crc4)
-                Debug.Log("[CRC32] Результаты идентичны: 0x4A17B156");
+                Debug.Log("[CRC32] Selftest passed.");
             else
-                Debug.LogError("[CRC32] Результаты отличны от: 0x4A17B156");
+                Debug.LogError("[CRC32] Selftest failed. The resuld is not match: 0x4A17B156");
         }
     }
 }

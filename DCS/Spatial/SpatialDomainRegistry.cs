@@ -6,7 +6,7 @@ namespace DCS.Spatial
     /// Реестр SpatialDomain-ов. Он же — фабрика (Create).
     ///
     /// Один SpatialDomain может быть привязан к нескольким Domain через
-    /// Domain.AttachSpatial(id). Один Domain может не иметь spatial вообще.
+    /// Domain.AttachSpatial(id). Domain может не иметь spatial вообще.
     /// </summary>
     public static class SpatialDomainRegistry
     {
@@ -14,30 +14,17 @@ namespace DCS.Spatial
         private static int _nextId = 0;
 
         /// <summary>
-        /// Создаёт новый SpatialDomain с указанными источниками.
+        /// Создаёт новый SpatialDomain.
         /// Возвращает его id — привяжи к Domain через Domain.AttachSpatial(id).
         /// </summary>
         public static int Create(
-            IPositionSource positions,
-            INameSource names,
-            ITagSource tags,
             int gridWidth = 16,
             int gridHeight = 16,
             int gridDepth = 16,
-            float cellSize = 12.5f,
-            float radius = 0.5f)
+            float cellSize = 12.5f)
         {
             int id = _nextId++;
-            var domain = new SpatialDomain(
-                id,
-                positions,
-                names,
-                tags,
-                gridWidth,
-                gridHeight,
-                gridDepth,
-                cellSize,
-                radius);
+            var domain = new SpatialDomain(id, gridWidth, gridHeight, gridDepth, cellSize);
             _byId[id] = domain;
             return id;
         }

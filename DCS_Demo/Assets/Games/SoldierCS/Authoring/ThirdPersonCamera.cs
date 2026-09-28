@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DCS.Game.Soldiers
+namespace DCS.Game.SoldierCS
 {
     /// <summary>
     /// Third-person камера. Мышь управляет yaw/pitch.
