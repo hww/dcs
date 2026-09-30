@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace DCS.Authoring.Editor
@@ -40,15 +40,30 @@ namespace DCS.Authoring.Editor
         {
             var sphere = (ShapeSphere)target;
             Vector3 ls = sphere.transform.lossyScale;
-            float worldRadius = sphere.Radius * Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z));
+
+            // Вычисляем финальный радиус с учетом максимальной оси масштаба (как в самом компоненте)
+            float maxScale = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y));
+            maxScale = Mathf.Max(maxScale, Mathf.Abs(ls.z));
+            float worldRadius = sphere.Radius * maxScale;
 
             var prev = Handles.color;
+            Matrix4x4 prevMatrix = Handles.matrix;
+
+            // ---- ИСПРАВЛЕННАЯ ЗАЛИВКА СФЕРЫ ----
             Handles.color = ShapeEditorGUIUtility.FillColor;
-            Handles.DrawSolidDisc(sphere.transform.position, Vector3.up, worldRadius * 0.0001f); // cheap fill substitute
+            // Устанавливаем матрицу с точным мировым размером сферы во все стороны (равномерный объем)
+            Handles.matrix = Matrix4x4.TRS(sphere.transform.position, Quaternion.identity, Vector3.one * worldRadius * 2f);
+            Handles.SphereHandleCap(0, Vector3.zero, Quaternion.identity, 1f, EventType.Repaint);
+
+            // Восстанавливаем матрицу для дисков контура
+            Handles.matrix = prevMatrix;
+
+            // ---- КОНТУР ----
             Handles.color = ShapeEditorGUIUtility.OutlineColor;
             Handles.DrawWireDisc(sphere.transform.position, Vector3.up, worldRadius);
             Handles.DrawWireDisc(sphere.transform.position, Vector3.right, worldRadius);
             Handles.DrawWireDisc(sphere.transform.position, Vector3.forward, worldRadius);
+
             Handles.color = prev;
         }
 
@@ -56,10 +71,12 @@ namespace DCS.Authoring.Editor
         {
             var sphere = (ShapeSphere)target;
             Vector3 ls = sphere.transform.lossyScale;
-            float worldRadius = sphere.Radius * Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z));
-            Vector3 center = sphere.transform.position;
 
-            // Three radial handles along world axes.
+            float maxScale = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y));
+            maxScale = Mathf.Max(maxScale, Mathf.Abs(ls.z));
+            float worldRadius = sphere.Radius * maxScale;
+
+            Vector3 center = sphere.transform.position;
             Vector3[] axes = { Vector3.right, Vector3.up, Vector3.forward };
 
             EditorGUI.BeginChangeCheck();
@@ -69,7 +86,7 @@ namespace DCS.Authoring.Editor
             {
                 Vector3 dir = axes[i];
                 Vector3 handlePos = center + dir * worldRadius;
-                float size = HandleUtility.GetHandleSize(handlePos) * 0.12f;
+                float size = HandleUtility.GetHandleSize(handlePos) * HANDLE_SIZE_SCALE;
 
                 Handles.color = ShapeEditorGUIUtility.HandleColor;
                 Vector3 moved = Handles.Slider(handlePos, dir, size, Handles.SphereHandleCap, 0.01f);
@@ -77,29 +94,15 @@ namespace DCS.Authoring.Editor
                 if (moved != handlePos)
                 {
                     float newWorldRadius = Vector3.Distance(center, moved);
-                    float localScale = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z));
-                    newRadius = Mathf.Max(MinRadius, newWorldRadius / Mathf.Max(localScale, 0.0001f));
+                    newRadius = Mathf.Max(MinRadius, newWorldRadius / Mathf.Max(maxScale, 0.0001f));
                 }
-            }
-
-            // Uniform centre handle.
-            Handles.color = ShapeEditorGUIUtility.SelectedColor;
-            float centerHandleSize = HandleUtility.GetHandleSize(center) * 0.18f;
-            var fmh_89_25_639262227192589225 = Quaternion.identity; Vector3 uniform = Handles.FreeMoveHandle(
-                center, centerHandleSize, Vector3.one * 0.05f, Handles.CircleHandleCap);
-
-            if (uniform != center)
-            {
-                float newWorldRadius = Vector3.Distance(center, uniform);
-                float localScale = Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z));
-                newRadius = Mathf.Max(MinRadius, newWorldRadius / Mathf.Max(localScale, 0.0001f));
             }
 
             if (EditorGUI.EndChangeCheck())
             {
-                RecordSerializedUndo("Resize ShapeSphere");
-                _radiusProp.floatValue = newRadius;
-                serializedObject.ApplyModifiedProperties();
+                Undo.RecordObject(sphere, "Resize ShapeSphere");
+                sphere.Radius = newRadius;
+                EditorUtility.SetDirty(sphere);
             }
         }
     }

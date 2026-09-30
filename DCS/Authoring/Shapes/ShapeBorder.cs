@@ -113,21 +113,17 @@ namespace DCS.Authoring
             DrawLoop(_minY);
             DrawLoop(_maxY);
 
-            if (_closed && _points.Length >= 3)
+            if (!_closed || _points.Length < 3)
+                return;
+
+            // Draw a vertical strut at every vertex. Previously only every other
+            // vertex got one, which made the prism look broken for low-poly borders.
+            for (int i = 0; i < _points.Length; i++)
             {
+                Vector3 p = _points[i];
                 Gizmos.DrawLine(
-                    transform.TransformPoint(new Vector3(_points[0].x, _minY, _points[0].z)),
-                    transform.TransformPoint(new Vector3(_points[0].x, _maxY, _points[0].z)));
-
-                for (int i = 1; i < _points.Length; i++)
-                {
-                    if (i % 2 == 0)
-                        continue;
-
-                    Gizmos.DrawLine(
-                        transform.TransformPoint(new Vector3(_points[i].x, _minY, _points[i].z)),
-                        transform.TransformPoint(new Vector3(_points[i].x, _maxY, _points[i].z)));
-                }
+                    transform.TransformPoint(new Vector3(p.x, _minY, p.z)),
+                    transform.TransformPoint(new Vector3(p.x, _maxY, p.z)));
             }
         }
 

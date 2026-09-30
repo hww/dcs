@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using AOT;
 using UnityEngine;
 
 namespace DCS.Lua
@@ -27,7 +28,10 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetKey(IntPtr L)
         {
-            KeyCode code = (KeyCode)LuaArgumentReader.ReadInt(L, 1);
+            var args = new ArgReader(L, "Input.GetKey");
+            args.ExpectExactly(1);
+
+            KeyCode code = (KeyCode)(int)args.CheckInteger(1);
             LuaNative.lua_pushboolean(L, UnityEngine.Input.GetKey(code) ? 1 : 0);
             return 1;
         }
@@ -35,7 +39,10 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetKeyDown(IntPtr L)
         {
-            KeyCode code = (KeyCode)LuaArgumentReader.ReadInt(L, 1);
+            var args = new ArgReader(L, "Input.GetKeyDown");
+            args.ExpectExactly(1);
+
+            KeyCode code = (KeyCode)(int)args.CheckInteger(1);
             LuaNative.lua_pushboolean(L, UnityEngine.Input.GetKeyDown(code) ? 1 : 0);
             return 1;
         }
@@ -43,8 +50,14 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetAxis(IntPtr L)
         {
-            string axis = LuaArgumentReader.ReadString(L, 1);
-            float v = string.IsNullOrEmpty(axis) ? 0f : UnityEngine.Input.GetAxis(axis);
+            var args = new ArgReader(L, "Input.GetAxis");
+            args.ExpectExactly(1);
+
+            string axis = args.CheckString(1);
+            if (string.IsNullOrEmpty(axis))
+                LuaFail.Fail(L, "Input.GetAxis", "argument #1: axis name must not be empty");
+
+            float v = UnityEngine.Input.GetAxis(axis);
             LuaNative.lua_pushnumber(L, v);
             return 1;
         }

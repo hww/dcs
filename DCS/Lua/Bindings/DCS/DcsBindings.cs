@@ -22,6 +22,9 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetTypesCount(IntPtr L)
         {
+            var args = new ArgReader(L, "GetTypesCount");
+            args.ExpectExactly(0);
+
             LuaNative.lua_pushinteger(L, ComponentRegistry.GetTypesCount());
             return 1;
         }
@@ -29,7 +32,10 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetTypeNameById(IntPtr L)
         {
-            int id = LuaArgumentReader.ReadInt(L, 1);
+            var args = new ArgReader(L, "GetTypeNameById");
+            args.ExpectExactly(1);
+
+            int id = (int)args.CheckInteger(1);
 
             if (id < 0 || id >= ComponentRegistry.MaxComponentTypes)
             {

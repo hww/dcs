@@ -73,8 +73,8 @@ namespace DCS.Game.SoldierLua
                 Host host = posPool.Roster[pos.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
                 // Смотрим, какой input-компонент есть на хосте
                 float forward = 0f, strafe = 0f;
@@ -132,20 +132,22 @@ namespace DCS.Game.SoldierLua
 
         public static void Update(HostChain chain)
         {
-            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
-            for (int i = 0; i < viewPool.Partition; i++)
+            var posPool = ComponentRegistry.GetPool<PositionComponent>();
+            for (int i = 0; i < posPool.Partition; i++)
             {
-                ref ViewComponent view = ref viewPool.Components[i];
-                Host host = viewPool.Roster[view.RosterIndex].Host;
+                ref PositionComponent pos = ref posPool.Components[i];
+                Host host = posPool.Roster[pos.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
-                Animator animator = view.Actor.Animator;
+                var reference = HostManager.GetActor(host);
+                if (reference is not Actor actor) continue;
+
+                Animator animator = actor.Animator;
                 if (animator == null) continue;
 
-                // На земле?
                 Handle hGroundAnim = DCSystem.Get<GroundedAnimationComponent>(host, chain);
                 if (!hGroundAnim.IsNull)
                 {
@@ -155,7 +157,6 @@ namespace DCS.Game.SoldierLua
                     continue;
                 }
 
-                // Падает?
                 Handle hFallAnim = DCSystem.Get<FallingAnimationComponent>(host, chain);
                 if (!hFallAnim.IsNull)
                 {
@@ -175,22 +176,20 @@ namespace DCS.Game.SoldierLua
     {
         public static void Update(HostChain chain)
         {
-            var viewPool = ComponentRegistry.GetPool<ViewComponent>();
-            for (int i = 0; i < viewPool.Partition; i++)
+            var posPool = ComponentRegistry.GetPool<PositionComponent>();
+            for (int i = 0; i < posPool.Partition; i++)
             {
-                ref ViewComponent view = ref viewPool.Components[i];
-                Host host = viewPool.Roster[view.RosterIndex].Host;
+                ref PositionComponent pos = ref posPool.Components[i];
+                Host host = posPool.Roster[pos.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
-                Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
-                if (hPos.IsNull) continue;
+                var reference = HostManager.GetActor(host);
+                if (reference is not BaseActor actor) continue;
 
-                ref PositionComponent pos = ref DCSystem.ResolveHandle<PositionComponent>(hPos);
-
-                Transform t = view.Actor.transform;
+                Transform t = actor.transform;
                 if (t == null) continue;
 
                 t.position = pos.Position;

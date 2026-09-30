@@ -10,6 +10,7 @@ namespace DCS.Core
     [System.Serializable]
     public struct Host
     {
+        public static readonly Host Null = new Host() { Id = HandleConfig.NULL_INDEX, Generation = 0 }; 
         public ushort Id;
         public ushort Generation;
 
@@ -56,6 +57,10 @@ namespace DCS.Core
             Id = (ushort)(packed & HandleConfig.ID_MASK);
             Generation = (ushort)((packed >> HandleConfig.GEN_SHIFT) & HandleConfig.GEN_MASK);
         }
+
+        // Заглушка для компиляции, у вас она уже есть
+        public static bool operator ==(Host a, Host b) => a.Id==b.Id && a.Generation==b.Generation; // Ваша логика сравнения
+        public static bool operator !=(Host a, Host b) => a.Id != b.Id || a.Generation != b.Generation;
 
         public override string ToString() => $"Host(Id:{Id}, Gen:{Generation})";
     }

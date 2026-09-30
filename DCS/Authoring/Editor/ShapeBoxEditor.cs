@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace DCS.Authoring.Editor
@@ -8,7 +8,6 @@ namespace DCS.Authoring.Editor
     public sealed class ShapeBoxEditor : BaseShapeEditor
     {
         private SerializedProperty _sizeProp;
-
         private const float MinSize = 0.01f;
 
         protected override void OnEnable()
@@ -69,16 +68,17 @@ namespace DCS.Authoring.Editor
             Vector3 size = box.Size;
 
             Matrix4x4 prev = Handles.matrix;
-            Handles.matrix = Matrix4x4.TRS(
-                box.transform.position,
-                box.transform.rotation,
-                box.transform.lossyScale);
-
             var prevColor = Handles.color;
+
+            // ---- ИСПРАВЛЕННАЯ ЗАЛИВКА: точное совпадение размера ----
             Handles.color = ShapeEditorGUIUtility.FillColor;
+            // Перемножаем внутренний Size коробки и глобальный lossyScale объекта для точной матрицы
+            Vector3 exactWorldScale = Vector3.Scale(size, box.transform.lossyScale);
+            Handles.matrix = Matrix4x4.TRS(box.transform.position, box.transform.rotation, exactWorldScale);
             Handles.CubeHandleCap(0, Vector3.zero, Quaternion.identity, 1f, EventType.Repaint);
 
-            // Draw an explicit wire cube so the outline stays visible.
+            // ---- КОНТУР ----
+            Handles.matrix = Matrix4x4.TRS(box.transform.position, box.transform.rotation, box.transform.lossyScale);
             Handles.color = ShapeEditorGUIUtility.OutlineColor;
             Handles.DrawWireCube(Vector3.zero, size);
 
@@ -103,7 +103,6 @@ namespace DCS.Authoring.Editor
             EditorGUI.BeginChangeCheck();
             Vector3 newSize = size;
 
-            // --- Face handles (six pulls) -----------------------------------
             Vector3[] faceNormals =
             {
                 Vector3.right, Vector3.left,
@@ -125,44 +124,18 @@ namespace DCS.Authoring.Editor
                     float delta = Vector3.Dot(moved - faceCenter, n);
                     switch (i)
                     {
-                        case 0: newSize.x = Mathf.Max(MinSize, size.x + delta * 2f); break;
-                        case 1: newSize.x = Mathf.Max(MinSize, size.x + delta * 2f); break;
-                        case 2: newSize.y = Mathf.Max(MinSize, size.y + delta * 2f); break;
-                        case 3: newSize.y = Mathf.Max(MinSize, size.y + delta * 2f); break;
-                        case 4: newSize.z = Mathf.Max(MinSize, size.z + delta * 2f); break;
-                        case 5: newSize.z = Mathf.Max(MinSize, size.z + delta * 2f); break;
+                        case 0: case 1: newSize.x = Mathf.Max(MinSize, size.x + delta * 2f); break;
+                        case 2: case 3: newSize.y = Mathf.Max(MinSize, size.y + delta * 2f); break;
+                        case 4: case 5: newSize.z = Mathf.Max(MinSize, size.z + delta * 2f); break;
                     }
                 }
             }
 
-            // --- Centre uniform-scale handle --------------------------------
-            Handles.color = ShapeEditorGUIUtility.SelectedColor;
-            float centerSize = HandleUtility.GetHandleSize(Vector3.zero) * 0.18f;
-            var fmh_143_17_639262226840223828 = Quaternion.identity; Vector3 uniform = Handles.FreeMoveHandle(
-                Vector3.zero,
-                centerSize,
-                Vector3.one * 0.05f,
-                Handles.RectangleHandleCap);
-
-            if (uniform != Vector3.zero)
-            {
-                // Use the dominant axis of the drag to scale uniformly.
-                float drag = Mathf.Max(
-                    Mathf.Abs(uniform.x),
-                    Mathf.Abs(uniform.y),
-                    Mathf.Abs(uniform.z));
-                drag = Mathf.Max(drag, 0.001f);
-                newSize = size + Vector3.one * drag * 0.5f;
-                newSize.x = Mathf.Max(MinSize, newSize.x);
-                newSize.y = Mathf.Max(MinSize, newSize.y);
-                newSize.z = Mathf.Max(MinSize, newSize.z);
-            }
-
             if (EditorGUI.EndChangeCheck())
             {
-                RecordSerializedUndo("Resize ShapeBox");
-                _sizeProp.vector3Value = newSize;
-                serializedObject.ApplyModifiedProperties();
+                Undo.RecordObject(box, "Resize ShapeBox");
+                box.Size = newSize;
+                EditorUtility.SetDirty(box);
             }
 
             Handles.matrix = prevMatrix;

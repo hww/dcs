@@ -188,6 +188,13 @@ namespace DCS.Lua
             lua_rotate(L, idx, -1);
             lua_pop(L, 1);
         }
+
+        [DllImport(LUA_DLL, EntryPoint = "luaL_testudata", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr luaL_testudata(IntPtr L, int idx, string tname);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_next", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int lua_next(IntPtr L, int idx);
+
         // ============================================================
         // SWAPS AND ROTATES
         // ============================================================

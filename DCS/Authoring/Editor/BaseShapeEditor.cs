@@ -10,6 +10,7 @@ namespace DCS.Authoring.Editor
     /// </summary>
     public abstract class BaseShapeEditor : UnityEditor.Editor
     {
+        protected float HANDLE_SIZE_SCALE = 0.1f;
         protected SerializedProperty EnabledProp;
 
         protected virtual void OnEnable()

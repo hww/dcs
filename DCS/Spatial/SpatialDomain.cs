@@ -7,7 +7,7 @@ namespace DCS.Spatial
     ///
     /// Содержит:
     /// - DynamicSpatial (равномерная сетка для подвижных хостов)
-    /// - NameIndex / TagIndex (индексы для поиска)
+    /// - NameIndex / ArchetypeIndex (индексы для поиска)
     /// - StaticSpatial (опционально — запечённые данные уровня)
     ///
     /// НЕ содержит источников данных и НЕ обновляется сам.
@@ -19,7 +19,7 @@ namespace DCS.Spatial
 
         public DynamicSpatial DynamicSpatial { get; }
         public NameIndex Names { get; }
-        public TagIndex Tags { get; }
+        public ArchetypeIndex Archetypes { get; }
 
         /// <summary>Запечённый spatial (опционально). Может быть null.</summary>
         public SpatialRuntime StaticSpatial { get; set; }
@@ -34,14 +34,14 @@ namespace DCS.Spatial
             Id = id;
             DynamicSpatial = new DynamicSpatial(gridWidth, gridHeight, gridDepth, cellSize);
             Names = new NameIndex();
-            Tags = new TagIndex();
+            Archetypes = new ArchetypeIndex();
         }
 
         public void Clear()
         {
             DynamicSpatial.Clear();
             Names.Clear();
-            Tags.Clear();
+            Archetypes.Clear();
             StaticSpatial?.Clear();
         }
     }

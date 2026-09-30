@@ -45,7 +45,6 @@ namespace DCS.Actors
         // ============================================================
         public override bool GetField(string fieldName, IntPtr L)
         {
-            // Используем быстрый Ordinal-свитч строк без аллокаций
             switch (fieldName)
             {
                 case "spawnMode":
@@ -58,17 +57,18 @@ namespace DCS.Actors
                     LuaNative.lua_pushnumber(L, DespawnRadius);
                     break;
                 case "entityClass":
-                    // Заменяем нативный метод на безопасный пуш (предполагается наличие хелпера)
                     LuaNative.lua_pushstring(L, entityClassToSpawn ?? string.Empty);
+                    break;
+                case "prefabPath":
+                    LuaNative.lua_pushstring(L, PrefabPath ?? string.Empty);
                     break;
                 case "factsLifetime":
                     LuaNative.lua_pushinteger(L, (int)FactsLifetime);
                     break;
                 default:
-                    // Если поле не специфично для спаунера, каскадно пробрасываем вверх к Locator/BaseActor
                     return base.GetField(fieldName, L);
             }
-            return false;
+            return true;
         }
 
         // ============================================================

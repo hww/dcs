@@ -2,6 +2,7 @@ using DCS.Spatial;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using AOT;
 using UnityEngine;
 
 namespace DCS.Lua
@@ -21,18 +22,27 @@ namespace DCS.Lua
             });
         }
 
+        // ============================================================
+        //  QueryPoint(domain, x, y, z, type) -> table
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryPoint(IntPtr L)
         {
-            Vector3 point = ReadVector3(L, 1);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 4);
+            var args = new ArgReader(L, "Spatial.QueryPoint");
+            args.ExpectExactly(5);
 
-            _results.Clear();
+            args.CheckUserdataRaw(1);
+            Vector3 point = ReadVector3(args, 2);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)args.CheckInteger(5);
+
             if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
             {
-                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                LuaNative.lua_newtable(L);
                 return 1;
             }
+
+            _results.Clear();
             var spatial = sd.StaticSpatial;
             if (spatial != null)
                 spatial.QueryPoint(point, SpatialQueryFilter.ByType(type), _results);
@@ -41,19 +51,28 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  QueryRadius(domain, x, y, z, radius, type) -> table
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryRadius(IntPtr L)
         {
-            Vector3 center = ReadVector3(L, 1);
-            float radius = LuaArgumentReader.ReadFloat(L, 4);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
+            var args = new ArgReader(L, "Spatial.QueryRadius");
+            args.ExpectExactly(6);
 
-            _results.Clear();
+            args.CheckUserdataRaw(1);
+            Vector3 center = ReadVector3(args, 2);
+            float radius = (float)args.CheckNumber(5);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)args.CheckInteger(6);
+
             if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
             {
-                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                LuaNative.lua_newtable(L);
                 return 1;
             }
+
+            _results.Clear();
             var spatial = sd.StaticSpatial;
             if (spatial != null)
                 spatial.QueryRadius(center, radius, SpatialQueryFilter.ByType(type), _results);
@@ -62,17 +81,27 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  Contains(domain, x, y, z, ownerId, type) -> bool
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Contains(IntPtr L)
         {
-            Vector3 point = ReadVector3(L, 1);
-            ushort ownerId = (ushort)LuaArgumentReader.ReadInt(L, 4);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 5);
+            var args = new ArgReader(L, "Spatial.Contains");
+            args.ExpectExactly(6);
+
+            args.CheckUserdataRaw(1);
+            Vector3 point = ReadVector3(args, 2);
+            ushort ownerId = (ushort)args.CheckInteger(5);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)args.CheckInteger(6);
+
             if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
             {
-                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
+
             var spatial = sd.StaticSpatial;
             bool contains = spatial.Contains(point, ownerId, type);
 
@@ -80,19 +109,29 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  Raycast(domain, ox, oy, oz, dx, dy, dz, maxDist, type)
+        //    -> bool, ownerId, dist, px, py, pz, nx, ny, nz
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Raycast(IntPtr L)
         {
-            Vector3 origin = ReadVector3(L, 1);
-            Vector3 dir = ReadVector3(L, 4);
-            float maxDist = LuaArgumentReader.ReadFloat(L, 7);
-            ESpatialObjectType type = (ESpatialObjectType)(byte)LuaArgumentReader.ReadInt(L, 8);
+            var args = new ArgReader(L, "Spatial.Raycast");
+            args.ExpectExactly(9);
+
+            args.CheckUserdataRaw(1);
+            Vector3 origin = ReadVector3(args, 2);
+            Vector3 dir = ReadVector3(args, 5);
+            float maxDist = (float)args.CheckNumber(8);
+            ESpatialObjectType type = (ESpatialObjectType)(byte)args.CheckInteger(9);
 
             if (!HostResolver.TryGetSpatialDomain(L, 1, out var sd))
             {
-                LuaNative.lua_newtable(L);  // или pushboolean(false), в зависимости от функции
+                LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
+
             var spatial = sd.StaticSpatial;
             if (spatial == null)
             {
@@ -101,9 +140,7 @@ namespace DCS.Lua
             }
 
             bool hit = spatial.Raycast(
-                origin,
-                dir,
-                maxDist,
+                origin, dir, maxDist,
                 SpatialQueryFilter.ByType(type),
                 out SpatialHit h);
 
@@ -125,11 +162,15 @@ namespace DCS.Lua
             return 9;
         }
 
-        private static Vector3 ReadVector3(IntPtr L, int index)
+        // ============================================================
+        //  Внутреннее
+        // ============================================================
+
+        private static Vector3 ReadVector3(ArgReader args, int startIndex)
         {
-            float x = LuaArgumentReader.ReadFloat(L, index);
-            float y = LuaArgumentReader.ReadFloat(L, index + 1);
-            float z = LuaArgumentReader.ReadFloat(L, index + 2);
+            float x = (float)args.CheckNumber(startIndex);
+            float y = (float)args.CheckNumber(startIndex + 1);
+            float z = (float)args.CheckNumber(startIndex + 2);
             return new Vector3(x, y, z);
         }
 

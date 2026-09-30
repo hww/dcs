@@ -29,7 +29,7 @@ namespace DCS.Spatial
 
     [Serializable] public struct SphereGeometry { public Vector3 Center; public float Radius; }
     [Serializable] public struct BoxGeometry { public Vector3 Center; public Vector3 Extents; public Quaternion Rotation; }
-    [Serializable] public struct CylinderGeometry { public Vector3 Center; public float Radius; public float HalfHeight; public Quaternion Rotation; }
+    [Serializable] public struct CylinderGeometry { public Vector3 Center; public float Radius; public float HalfHeight; public Quaternion Rotation; public float Height  => HalfHeight * 2; }
     [Serializable] public struct PolygonGeometry { public int StartIndex; public int PointCount; public float MinY; public float MaxY; public bool Closed; }
 
     public enum ESpatialObjectType : byte

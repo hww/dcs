@@ -64,12 +64,30 @@ namespace DCS.Authoring.Editor
             Vector3 pos = cyl.transform.position;
 
             var prev = Handles.color;
-            Handles.color = ShapeEditorGUIUtility.OutlineColor;
+            Matrix4x4 prevMatrix = Handles.matrix;
 
+            // ---- ИСПРАВЛЕННАЯ ЗАЛИВКА ЦИЛИНДРА: деление высоты на 2 ----
+            Handles.color = ShapeEditorGUIUtility.FillColor;
+
+            // Встроенный CylinderHandleCap ориентирован вдоль локальной оси Z.
+            // LookRotation разворачивает эту локальную ось Z строго по вектору Transform.up компонента.
+            Quaternion correctLook = Quaternion.LookRotation(up, cyl.transform.forward);
+
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Встроенный примитив Unity имеет высоту 2.0. 
+            // Чтобы он совпал с контурами, по оси Z матрицы передаем h * 0.5f. По осям X и Y — диаметры (r * 2).
+            Vector3 correctScale = new Vector3(r * 2f, r * 2f, h);
+
+            Handles.matrix = Matrix4x4.TRS(pos, correctLook, correctScale);
+            Handles.CylinderHandleCap(0, Vector3.zero, Quaternion.identity, 1f, EventType.Repaint);
+
+            // Сбрасываем матрицу обратно для отрисовки тонких линий контура
+            Handles.matrix = prevMatrix;
+
+            // ---- КОНТУРНЫЕ ЛИНИИ ----
+            Handles.color = ShapeEditorGUIUtility.OutlineColor;
             Handles.DrawWireDisc(pos + up * halfH, up, r);
             Handles.DrawWireDisc(pos - up * halfH, up, r);
 
-            // Four silhouette lines.
             Vector3 right = cyl.transform.right;
             Vector3 forward = cyl.transform.forward;
             for (int i = 0; i < 4; i++)
@@ -101,9 +119,9 @@ namespace DCS.Authoring.Editor
             float newRadius = cyl.Radius;
             float newHeight = cyl.Height;
 
-            // --- Height handle (top cap) -----------------------------------
+            // --- Height handle (top cap) ---
             Vector3 topHandle = pos + up * halfH;
-            float topSize = HandleUtility.GetHandleSize(topHandle) * 0.12f;
+            float topSize = HandleUtility.GetHandleSize(topHandle) * HANDLE_SIZE_SCALE;
 
             Handles.color = ShapeEditorGUIUtility.HandleColor;
             Vector3 movedTop = Handles.Slider(topHandle, up, topSize, Handles.CubeHandleCap, 0.01f);
@@ -113,9 +131,9 @@ namespace DCS.Authoring.Editor
                 newHeight = Mathf.Max(MinHeight, newH / Mathf.Max(hScale, 0.0001f));
             }
 
-            // --- Bottom cap (dragging shifts height symmetrically) ----------
+            // --- Bottom cap ---
             Vector3 bottomHandle = pos - up * halfH;
-            float bottomSize = HandleUtility.GetHandleSize(bottomHandle) * 0.12f;
+            float bottomSize = HandleUtility.GetHandleSize(bottomHandle) * HANDLE_SIZE_SCALE;
             Vector3 movedBottom = Handles.Slider(bottomHandle, -up, bottomSize, Handles.CubeHandleCap, 0.01f);
             if (movedBottom != bottomHandle)
             {
@@ -123,10 +141,10 @@ namespace DCS.Authoring.Editor
                 newHeight = Mathf.Max(MinHeight, newH / Mathf.Max(hScale, 0.0001f));
             }
 
-            // --- Radius handle ---------------------------------------------
+            // --- Radius handle ---
             Vector3 radiusDir = cyl.transform.right;
             Vector3 radiusHandle = pos + radiusDir * r;
-            float radiusSize = HandleUtility.GetHandleSize(radiusHandle) * 0.12f;
+            float radiusSize = HandleUtility.GetHandleSize(radiusHandle) * HANDLE_SIZE_SCALE;
 
             Handles.color = ShapeEditorGUIUtility.SelectedColor;
             Vector3 movedRadius = Handles.Slider(radiusHandle, radiusDir, radiusSize, Handles.SphereHandleCap, 0.01f);
@@ -138,10 +156,10 @@ namespace DCS.Authoring.Editor
 
             if (EditorGUI.EndChangeCheck())
             {
-                RecordSerializedUndo("Resize ShapeCylinder");
-                _radiusProp.floatValue = newRadius;
-                _heightProp.floatValue = newHeight;
-                serializedObject.ApplyModifiedProperties();
+                Undo.RecordObject(cyl, "Resize ShapeCylinder");
+                cyl.Radius = newRadius;
+                cyl.Height = newHeight;
+                EditorUtility.SetDirty(cyl);
             }
         }
     }

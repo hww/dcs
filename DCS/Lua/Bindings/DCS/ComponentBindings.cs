@@ -17,17 +17,26 @@ namespace DCS.Lua
             LuaBindings.RegisterMethod(L, Lua_SetField, tableIndex, "SetField");
         }
 
+        // ============================================================
+        //  CreateComponent(domain, typeId, hostId) -> handle | nil
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_CreateComponent(IntPtr L)
         {
+            var args = new ArgReader(L, "CreateComponent");
+            args.ExpectExactly(3);
+
+            // Аргумент 1 — domain (userdata). Проверку делает HostResolver.
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHost = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
-
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHost = LuaArgumentReader.ReadInt(L, 3);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
@@ -60,14 +69,22 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  RemoveComponent(domain, typeId, handle)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RemoveComponent(IntPtr L)
         {
+            var args = new ArgReader(L, "RemoveComponent");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHandle = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
-
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHandle = LuaArgumentReader.ReadInt(L, 3);
 
             if (packedHandle == HandleConfig.NULL_INDEX ||
                 typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
@@ -84,17 +101,25 @@ namespace DCS.Lua
             return 0;
         }
 
+        // ============================================================
+        //  HasComponent(domain, typeId, hostId) -> bool
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_HasComponent(IntPtr L)
         {
+            var args = new ArgReader(L, "HasComponent");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHost = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushboolean(L, 0);
                 return 1;
             }
-
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHost = LuaArgumentReader.ReadInt(L, 3);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
@@ -114,17 +139,25 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  GetComponent(domain, typeId, hostId) -> handle | nil
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetComponent(IntPtr L)
         {
+            var args = new ArgReader(L, "GetComponent");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHost = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
-
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHost = LuaArgumentReader.ReadInt(L, 3);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
@@ -150,21 +183,32 @@ namespace DCS.Lua
             return 1;
         }
 
+        // ============================================================
+        //  GetField(domain, typeId, handle, fieldName) -> value
+        //  Если поле не найдено — luaL_error.
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetField(IntPtr L)
         {
+            var args = new ArgReader(L, "GetField");
+            args.ExpectExactly(4);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHandle = (int)args.CheckInteger(3);
+            string fieldName = args.CheckString(4);
+
+            if (string.IsNullOrEmpty(fieldName))
+                LuaFail.Fail(L, "GetField", "argument #4: field name must not be empty");
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
 
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHandle = LuaArgumentReader.ReadInt(L, 3);
-            string fieldName = LuaArgumentReader.ReadString(L, 4);
-
             if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
                 typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
                 LuaNative.lua_pushnil(L);
@@ -181,15 +225,30 @@ namespace DCS.Lua
 
             int topBefore = LuaNative.lua_gettop(L);
             if (!pool.GetField(denseIndex, fieldName, L))
-                return LuaNative.luaL_error(L, $"[DCS Error] Field '{fieldName}' does not exist.");
+                LuaFail.Fail(L, "GetField", $"field '{fieldName}' does not exist on type {typeId}");
 
             int count = LuaNative.lua_gettop(L) - topBefore;
             return count > 0 ? count : 1;
         }
 
+        // ============================================================
+        //  TryGetField(domain, typeId, handle, fieldName) -> bool, value
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_TryGetField(IntPtr L)
         {
+            var args = new ArgReader(L, "TryGetField");
+            args.ExpectExactly(4);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHandle = (int)args.CheckInteger(3);
+            string fieldName = args.CheckString(4);
+
+            if (string.IsNullOrEmpty(fieldName))
+                LuaFail.Fail(L, "TryGetField", "argument #4: field name must not be empty");
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushboolean(L, 0);
@@ -197,12 +256,7 @@ namespace DCS.Lua
                 return 2;
             }
 
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHandle = LuaArgumentReader.ReadInt(L, 3);
-            string fieldName = LuaArgumentReader.ReadString(L, 4);
-
             if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
                 typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
             {
                 LuaNative.lua_pushboolean(L, 0);
@@ -233,18 +287,29 @@ namespace DCS.Lua
             return valueCount + 1;
         }
 
+        // ============================================================
+        //  SetField(domain, typeId, handle, fieldName, value)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetField(IntPtr L)
         {
+            var args = new ArgReader(L, "SetField");
+            args.ExpectExactly(5);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int packedHandle = (int)args.CheckInteger(3);
+            string fieldName = args.CheckString(4);
+            args.CheckAny(5);   // значение — любой тип, включая nil
+
+            if (string.IsNullOrEmpty(fieldName))
+                LuaFail.Fail(L, "SetField", "argument #4: field name must not be empty");
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
 
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int packedHandle = LuaArgumentReader.ReadInt(L, 3);
-            string fieldName = LuaArgumentReader.ReadString(L, 4);
-
             if (packedHandle == HandleConfig.NULL_INDEX ||
-                string.IsNullOrEmpty(fieldName) ||
                 typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
                 return 0;
 
@@ -254,10 +319,8 @@ namespace DCS.Lua
                 return 0;
 
             if (!pool.SetField(denseIndex, fieldName, L))
-            {
-                return LuaNative.luaL_error(L,
-                    $"[DCS Write Error] Cannot write field '{fieldName}' on type {typeId}.");
-            }
+                LuaFail.Fail(L, "SetField",
+                    $"cannot write field '{fieldName}' on type {typeId}");
 
             return 0;
         }

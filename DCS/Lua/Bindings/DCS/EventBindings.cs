@@ -6,7 +6,6 @@ namespace DCS.Lua
 {
     public static class EventBindings
     {
-        // EventBindings.cs
         public static void Register(IntPtr L, int tableIndex)
         {
             LuaBindings.RegisterMethod(L, Lua_EmitEvent, tableIndex, "EmitEvent");
@@ -18,11 +17,15 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_EmitEvent(IntPtr L)
         {
+            var args = new ArgReader(L, "EmitEvent");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int typeId = (int)args.CheckInteger(2);
+            int hostId = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
-
-            int typeId = LuaArgumentReader.ReadInt(L, 2);
-            int hostId = LuaArgumentReader.ReadInt(L, 3);
 
             if (typeId < 0 || typeId >= ComponentRegistry.MaxComponentTypes)
                 return 0;
@@ -44,11 +47,15 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RegisterSubscription(IntPtr L)
         {
+            var args = new ArgReader(L, "RegisterSubscription");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int hostId = (int)args.CheckInteger(2);
+            int eventTypeId = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
-
-            int hostId = LuaArgumentReader.ReadInt(L, 2);
-            int eventTypeId = LuaArgumentReader.ReadInt(L, 3);
 
             if (!HostResolver.TryGetHost(hostId, out Host host))
                 return 0;
@@ -68,11 +75,15 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_UnregisterSubscription(IntPtr L)
         {
+            var args = new ArgReader(L, "UnregisterSubscription");
+            args.ExpectExactly(3);
+
+            args.CheckInteger(1);
+            int hostId = (int)args.CheckInteger(2);
+            int packedSubHandle = (int)args.CheckInteger(3);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
-
-            int hostId = LuaArgumentReader.ReadInt(L, 2);
-            int packedSubHandle = LuaArgumentReader.ReadInt(L, 3);
 
             if (!HostResolver.TryGetHost(hostId, out Host host))
                 return 0;
@@ -93,12 +104,16 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_DeliverEvent(IntPtr L)
         {
+            var args = new ArgReader(L, "DeliverEvent");
+            args.ExpectExactly(4);
+
+            args.CheckInteger(1);
+            int receiverHostId = (int)args.CheckInteger(2);
+            int eventTypeId = (int)args.CheckInteger(3);
+            int packedHandle = (int)args.CheckInteger(4);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
-
-            int receiverHostId = LuaArgumentReader.ReadInt(L, 2);
-            int eventTypeId = LuaArgumentReader.ReadInt(L, 3);
-            int packedHandle = LuaArgumentReader.ReadInt(L, 4);
 
             if (receiverHostId < 0 || packedHandle == HandleConfig.NULL_INDEX)
                 return 0;

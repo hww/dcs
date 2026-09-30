@@ -12,6 +12,6 @@ namespace DCS.Actors
     public struct NameComponent : IComponent
     {
         public int RosterIndex { get; set; }
-        public string Name;
+        public Name Name;
     }
 }

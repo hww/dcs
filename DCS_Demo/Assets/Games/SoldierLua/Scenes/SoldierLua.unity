@@ -155,6 +155,52 @@ Transform:
   - {fileID: 508432695}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &334542555
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 334542556}
+  - component: {fileID: 334542557}
+  m_Layer: 0
+  m_Name: ShapeBox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &334542556
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 334542555}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 5, y: 0.55, z: 10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 375253087}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &334542557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 334542555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96f342710558405428cb317247c9ccc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Authoring.ShapeBox
+  _enabled: 1
+  _size: {x: 2.1727486, y: 1.9158429, z: 1.9158429}
 --- !u!1 &348001213
 GameObject:
   m_ObjectHideFlags: 0
@@ -195,6 +241,56 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 348001213}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32e433616e98e6a4ba09be5af10170dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Authoring.Region
+  _key: 
+  _enabled: 1
+  _description: 
+--- !u!1 &375253086
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 375253087}
+  - component: {fileID: 375253088}
+  m_Layer: 0
+  m_Name: Region_3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &375253087
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375253086}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -10, y: 0, z: -10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 334542556}
+  - {fileID: 823273827}
+  - {fileID: 1494196151}
+  m_Father: {fileID: 1305972423}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &375253088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375253086}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 32e433616e98e6a4ba09be5af10170dd, type: 3}
@@ -286,12 +382,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
+  _LuaHook:
     Module: 
     Entry: 
-  _searchName: 
   _objectType: 0
-  _searchTags: 
+  _archetype: 
   Transform: {fileID: 0}
   RigidBody: {fileID: 0}
   Collider: {fileID: 508432693}
@@ -366,12 +461,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
+  _LuaHook:
     Module: 
     Entry: 
-  _searchName: 
   _objectType: 0
-  _searchTags: 
+  _archetype: Soldier
   Facts:
     jsonData: '{
 
@@ -420,12 +514,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
+  _LuaHook:
     Module: 
     Entry: 
-  _searchName: 
   _objectType: 0
-  _searchTags: 
+  _archetype: 
   _key: 
   _scriptPath: 
   _enabled: 1
@@ -581,6 +674,53 @@ Transform:
   m_Children: []
   m_Father: {fileID: 283601110}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &823273826
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 823273827}
+  - component: {fileID: 823273828}
+  m_Layer: 0
+  m_Name: ShapeCylinder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &823273827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 823273826}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 10, y: 1.06, z: 10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 375253087}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &823273828
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 823273826}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf8651df1f75c204e9854b7e165a56fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Authoring.ShapeCylinder
+  _enabled: 1
+  _radius: 1
+  _height: 1.9581504
 --- !u!1 &848908732
 GameObject:
   m_ObjectHideFlags: 0
@@ -630,12 +770,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
+  _LuaHook:
     Module: 
     Entry: 
-  _searchName: 
   _objectType: 0
-  _searchTags: 
+  _archetype: Soldier
   Facts:
     jsonData: '{
 
@@ -689,12 +828,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
-    Module: actors.soldier_spawner
-    Entry: start_soldier_spawner
-  _searchName: 
+  _LuaHook:
+    Module: 
+    Entry: 
   _objectType: 0
-  _searchTags: 
+  _archetype: Solder
   Facts:
     jsonData: '{
 
@@ -878,11 +1016,124 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0336f0589ab8aa144aea2ec2735e9dd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LuaSoldierBoot
+--- !u!1 &1305972422
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1305972423}
+  - component: {fileID: 1305972424}
+  m_Layer: 0
+  m_Name: Encounter_3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1305972423
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305972422}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 375253087}
+  - {fileID: 1753239120}
+  m_Father: {fileID: 1790616614}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1305972424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305972422}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e40dd6602e86754458964d4d21a2a736, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Gameplay.Encounter
+  _host:
+    Id: 0
+    Generation: 0
+  _cachedTransform: {fileID: 0}
+  _cachedAnimator: {fileID: 0}
+  _LuaHook:
+    Module: 
+    Entry: 
+  _objectType: 0
+  _archetype: 
+  _key: 
+  _scriptPath: 
+  _enabled: 1
+  _autoStart: 0
+  Facts:
+    jsonData: '{
+
+      
+
+      }'
+  FactsLifetime: 0
 --- !u!4 &1336906989 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8174158803856233911, guid: 36b381d78157aac4899723daed27c170, type: 3}
   m_PrefabInstance: {fileID: 5374512187824570916}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1494196150
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1494196151}
+  - component: {fileID: 1494196152}
+  m_Layer: 0
+  m_Name: ShapeSphere
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1494196151
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1494196150}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 15, y: 1.08, z: 10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 375253087}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1494196152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1494196150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f302900e60703f42b46dcf7167fffc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Authoring.ShapeSphere
+  _enabled: 1
+  _radius: 2.038015
 --- !u!1 &1568407256
 GameObject:
   m_ObjectHideFlags: 0
@@ -982,12 +1233,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
+  _LuaHook:
     Module: 
     Entry: 
-  _searchName: 
   _objectType: 0
-  _searchTags: 
+  _archetype: 
   _key: 
   _scriptPath: 
   _enabled: 1
@@ -999,6 +1249,74 @@ MonoBehaviour:
 
       }'
   FactsLifetime: 0
+--- !u!1 &1753239119
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1753239120}
+  - component: {fileID: 1753239121}
+  m_Layer: 0
+  m_Name: Spawner_3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1753239120
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1753239119}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1305972423}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1753239121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1753239119}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05fdc0e74b0dfde43be2ff117fd38165, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Actors.Spawner
+  _host:
+    Id: 0
+    Generation: 0
+  _cachedTransform: {fileID: 0}
+  _cachedAnimator: {fileID: 0}
+  _LuaHook:
+    Module: 
+    Entry: 
+  _objectType: 0
+  _archetype: 
+  Facts:
+    jsonData: '{
+
+      
+
+      }'
+  FactsLifetime: 0
+  Mode: 0
+  AutoSpawn: 1
+  ActivationRadius: 50
+  EncounterRadius: 30
+  DespawnRadius: 60
+  PrefabPath: 
+  entityClassToSpawn: 
 --- !u!1 &1790616613
 GameObject:
   m_ObjectHideFlags: 0
@@ -1031,6 +1349,91 @@ Transform:
   - {fileID: 1035757716}
   - {fileID: 728692434}
   - {fileID: 1687702382}
+  - {fileID: 1305972423}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1809273729
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1809273731}
+  - component: {fileID: 1809273730}
+  m_Layer: 0
+  m_Name: MapDatasetView
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1809273730
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1809273729}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6893e788cee679041ba42ba16bb78d76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DCS.Framework::DCS.Debugging.Runtime.MapDatasetDebugView
+  _dataset: {fileID: 11400000, guid: d067d2f99b90d7444bb4974e56e1627d, type: 2}
+  _settings:
+    ShowEncounters: 1
+    ShowRegions: 1
+    ShowTriggers: 1
+    ShowStrongPoints: 1
+    ShowSpawners: 1
+    ShowLocators: 1
+    ShowPosts: 1
+    ShowPatrolPoints: 1
+    ShowTraversalLinks: 1
+    ShowNavigationSurfaces: 1
+    ShowSpheres: 1
+    ShowBoxes: 1
+    ShowCylinders: 1
+    ShowPolygons: 1
+    MarkerSize: 0.5
+    LineWidth: 2
+    CircleSegments: 24
+    ShowLabels: 1
+    ShowHud: 1
+    ShowIdsInLabels: 1
+    DimDisabledEntries: 1
+    DisabledAlpha: 0.78
+    EncounterColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.9}
+    RegionColor: {r: 0.3, g: 0.9, b: 0.6, a: 0.9}
+    TriggerColor: {r: 0.95, g: 0.75, b: 0.2, a: 0.9}
+    StrongPointColor: {r: 1, g: 0.45, b: 0.2, a: 0.9}
+    SpawnerColor: {r: 0.25, g: 0.9, b: 0.25, a: 0.9}
+    LocatorColor: {r: 0.95, g: 0.95, b: 0.3, a: 0.9}
+    PostColor: {r: 0.85, g: 0.25, b: 0.85, a: 0.9}
+    PatrolColor: {r: 0.2, g: 0.6, b: 1, a: 0.9}
+    TraversalColor: {r: 0.95, g: 0.55, b: 0.1, a: 0.9}
+    NavigationColor: {r: 0.3, g: 0.8, b: 0.9, a: 0.9}
+    SphereColor: {r: 0.4, g: 0.7, b: 1, a: 0.6}
+    BoxColor: {r: 0.4, g: 1, b: 0.7, a: 0.6}
+    CylinderColor: {r: 1, g: 0.7, b: 0.4, a: 0.6}
+    PolygonColor: {r: 0.7, g: 0.7, b: 1, a: 0.8}
+    HudBackgroundColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.85}
+    HudTextColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
+--- !u!4 &1809273731
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1809273729}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1854508959
@@ -1188,12 +1591,11 @@ MonoBehaviour:
     Generation: 0
   _cachedTransform: {fileID: 0}
   _cachedAnimator: {fileID: 0}
-  _luaConfig:
-    Module: actors.camera
-    Entry: start_camera
-  _searchName: 
+  _LuaHook:
+    Module: 
+    Entry: 
   _objectType: 0
-  _searchTags: 
+  _archetype: 
   _cameraName: MainCamera
   _isMain: 1
   Animator: {fileID: 0}
@@ -1292,12 +1694,13 @@ MonoBehaviour:
   _enabled: 1
   _points:
   - {x: -1, y: 0, z: -1}
-  - {x: -1, y: 0, z: 1}
-  - {x: 1, y: 0, z: 1}
+  - {x: -1.0598307, y: 0, z: 1.4793046}
+  - {x: 1.0210409, y: 0, z: 1.4674772}
   - {x: 1, y: 0, z: -1}
+  - {x: -0.035650253, y: 0, z: -1.5858116}
   _closed: 1
   _minY: 0
-  _maxY: 2
+  _maxY: 2.1080527
 --- !u!1001 &5374512187824570916
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1363,3 +1766,4 @@ SceneRoots:
   - {fileID: 283601110}
   - {fileID: 1790616614}
   - {fileID: 1275694332}
+  - {fileID: 1809273731}

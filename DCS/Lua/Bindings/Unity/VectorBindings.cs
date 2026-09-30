@@ -17,49 +17,86 @@ namespace DCS.Lua
             LuaBindings.RegisterGlobalFunction(L, Lua_GetVector, "Internal_GetVector");
         }
 
+        // ============================================================
+        //  AllocateVector(x, y, z) -> idx
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_AllocateVector(IntPtr L)
         {
-            float x = (float)LuaNative.lua_tonumberx(L, 1, IntPtr.Zero);
-            float y = (float)LuaNative.lua_tonumberx(L, 2, IntPtr.Zero);
-            float z = (float)LuaNative.lua_tonumberx(L, 3, IntPtr.Zero);
+            var args = new ArgReader(L, "AllocateVector");
+            args.ExpectExactly(3);
+
+            float x = (float)args.CheckNumber(1);
+            float y = (float)args.CheckNumber(2);
+            float z = (float)args.CheckNumber(3);
+
             int idx = DCS_VectorAPI.AllocateVector(x, y, z);
             LuaNative.lua_pushinteger(L, idx);
             return 1;
         }
 
+        // ============================================================
+        //  RetainVector(idx)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_RetainVector(IntPtr L)
         {
-            int idx = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            var args = new ArgReader(L, "RetainVector");
+            args.ExpectExactly(1);
+
+            int idx = (int)args.CheckInteger(1);
             DCS_VectorAPI.RetainVector(idx);
             return 0;
         }
 
+        // ============================================================
+        //  ReleaseVector(idx)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_ReleaseVector(IntPtr L)
         {
-            int idx = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            var args = new ArgReader(L, "ReleaseVector");
+            args.ExpectExactly(1);
+
+            int idx = (int)args.CheckInteger(1);
             DCS_VectorAPI.ReleaseVector(idx);
             return 0;
         }
 
+        // ============================================================
+        //  VectorAdd(a, b, r)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_VectorAdd(IntPtr L)
         {
-            int a = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int b = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
-            int r = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+            var args = new ArgReader(L, "VectorAdd");
+            args.ExpectExactly(3);
+
+            int a = (int)args.CheckInteger(1);
+            int b = (int)args.CheckInteger(2);
+            int r = (int)args.CheckInteger(3);
+
             DCS_VectorAPI.VectorAdd(a, b, r);
             return 0;
         }
 
+        // ============================================================
+        //  VectorSub(a, b, r)
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_VectorSub(IntPtr L)
         {
-            int a = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
-            int b = (int)LuaNative.lua_tointegerx(L, 2, IntPtr.Zero);
-            int r = (int)LuaNative.lua_tointegerx(L, 3, IntPtr.Zero);
+            var args = new ArgReader(L, "VectorSub");
+            args.ExpectExactly(3);
+
+            int a = (int)args.CheckInteger(1);
+            int b = (int)args.CheckInteger(2);
+            int r = (int)args.CheckInteger(3);
 
             UnityEngine.Vector3 va = DCS_VectorAPI.VectorPool.Get(a);
             UnityEngine.Vector3 vb = DCS_VectorAPI.VectorPool.Get(b);
@@ -67,10 +104,18 @@ namespace DCS.Lua
             return 0;
         }
 
+        // ============================================================
+        //  GetVector(idx) -> x, y, z
+        // ============================================================
+
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetVector(IntPtr L)
         {
-            int idx = (int)LuaNative.lua_tointegerx(L, 1, IntPtr.Zero);
+            var args = new ArgReader(L, "GetVector");
+            args.ExpectExactly(1);
+
+            int idx = (int)args.CheckInteger(1);
+
             UnityEngine.Vector3 v = DCS_VectorAPI.VectorPool.Get(idx);
             LuaNative.lua_pushnumber(L, v.x);
             LuaNative.lua_pushnumber(L, v.y);

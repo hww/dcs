@@ -9,7 +9,7 @@ namespace DCS.Actors
 {
     public abstract class BaseActor : MonoBehaviour,
                                  IFieldAccess, IFactAccess, IHostReference,
-                                 ILifeCycle, ILuaConfigurable, ISearchable,
+                                 ILifeCycle, ILuaHookable, ISearchable,
                                  IInspectable
     {
         // ==================== Host Link ====================
@@ -33,40 +33,26 @@ namespace DCS.Actors
 
         // ==================== Lua ====================
         [Header("Lua (optional)")]
-        [SerializeField] protected LuaConfig _luaConfig;
-        public LuaConfig LuaConfig => _luaConfig;
-        public virtual bool HasLuaConfig => _luaConfig.IsValid;
+        [SerializeField] protected LuaHook _LuaHook;
+        public LuaHook LuaHook => _LuaHook;
+        public virtual bool HasLuaHook => _LuaHook.IsValid;
 
         // ==================== Search ====================
         [Header("Search")]
-        [Tooltip("Unique name for lookup. Leave empty if not findable by name.")]
-        [SerializeField] protected string _searchName;
 
         [Tooltip("Semantic type used for type-filtered queries.")]
         [SerializeField] protected ESpatialObjectType _objectType = ESpatialObjectType.Generic;
 
         [Tooltip("Comma-separated tags, no spaces. Example: 'german,patrol'.")]
-        [SerializeField] protected string _searchTags;
+        [SerializeField] protected string _archetype;
 
-        [System.NonSerialized] private string[] _cachedTags;
+        public string NameString => name;
 
-        public string SearchName => _searchName;
         public ESpatialObjectType ObjectType => _objectType;
 
-        public string[] SearchTags
-        {
-            get
-            {
-                if (_cachedTags == null)
-                    _cachedTags = string.IsNullOrEmpty(_searchTags)
-                        ? System.Array.Empty<string>()
-                        : _searchTags.Split(',');
-                return _cachedTags;
-            }
-        }
+        public string Archetype => _archetype;
 
-        public bool IsSearchable =>
-            !string.IsNullOrEmpty(_searchName) || SearchTags.Length > 0;
+        public bool IsSearchable => !string.IsNullOrEmpty(name) || Archetype.Length > 0;
 
         public bool IsAlive => this != null && gameObject != null;
 
@@ -132,10 +118,10 @@ namespace DCS.Actors
         {
             string indent = new string(' ', indentLevel * 4);
             sb.AppendLine($"{indent}[BaseActor] Host.Id: {_host.Id} Gen: {_host.Generation}");
-            sb.AppendLine($"{indent}  SearchName: '{_searchName}' Type: {_objectType} " +
-                          $"Tags: '{_searchTags}'");
-            sb.AppendLine($"{indent}  Lua: Module='{_luaConfig.Module}' Entry='{_luaConfig.Entry}' " +
-                          $"Valid={HasLuaConfig}");
+            sb.AppendLine($"{indent}  SearchName: '{name}' Type: {_objectType} " +
+                          $"Archetype: '{_archetype}'");
+            sb.AppendLine($"{indent}  Lua: Module='{_LuaHook.Module}' Entry='{_LuaHook.Entry}' " +
+                          $"HasLuaHook={HasLuaHook}");
         }
     }
 }

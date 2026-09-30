@@ -1,7 +1,7 @@
 using DCS.Core;
-using DCS.Lua;
 using System;
 using System.Runtime.InteropServices;
+using AOT;
 
 namespace DCS.Lua
 {
@@ -19,14 +19,15 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Find(IntPtr L)
         {
-            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
-            {
-                LuaNative.lua_pushnil(L);
-                return 1;
-            }
+            var args = new ArgReader(L, "Camera.Find");
+            args.ExpectExactly(2);
 
-            string name = LuaArgumentReader.ReadString(L, 2);
+            args.CheckInteger(1);
+            string name = args.CheckString(2);
             if (string.IsNullOrEmpty(name))
+                LuaFail.Fail(L, "Camera.Find", "argument #2: camera name must not be empty");
+
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
@@ -45,6 +46,11 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetMain(IntPtr L)
         {
+            var args = new ArgReader(L, "Camera.GetMain");
+            args.ExpectExactly(1);
+
+            args.CheckInteger(1);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);

@@ -1,8 +1,8 @@
 using DCS.Actors;
 using DCS.Core;
-using DCS.Lua;
 using System;
 using System.Runtime.InteropServices;
+using AOT;
 
 namespace DCS.Lua
 {
@@ -20,15 +20,19 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetCombatRole(IntPtr L)
         {
+            var args = new ArgReader(L, "AI.SetCombatRole");
+            args.ExpectExactly(4);
+
+            args.CheckInteger(1);
+            int hostId = (int)args.CheckInteger(2);
+            int role = (int)args.CheckInteger(3);
+            int strongPointId = (int)args.CheckInteger(4);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
-
-            int hostId = LuaArgumentReader.ReadInt(L, 2);
-            int role = LuaArgumentReader.ReadInt(L, 3);
-            int strongPointId = LuaArgumentReader.ReadInt(L, 4);
 
             if (!HostResolver.TryGetHost(hostId, out Host host))
             {
@@ -68,13 +72,17 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetCombatRole(IntPtr L)
         {
+            var args = new ArgReader(L, "AI.GetCombatRole");
+            args.ExpectExactly(2);
+
+            args.CheckInteger(1);
+            int hostId = (int)args.CheckInteger(2);
+
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
             {
                 LuaNative.lua_pushnil(L);
                 return 1;
             }
-
-            int hostId = LuaArgumentReader.ReadInt(L, 2);
 
             if (!HostResolver.TryGetHost(hostId, out Host host))
             {

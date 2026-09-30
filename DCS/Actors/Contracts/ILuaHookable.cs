@@ -11,13 +11,13 @@ namespace DCS.Actors
     /// Not all BaseActor descendants need a valid Lua config — Locator, for
     /// example, only exists as a searchable coordinate marker.
     /// </summary>
-    public interface ILuaConfigurable
+    public interface ILuaHookable
     {
         /// <summary>Lua entry point configuration. May be invalid (empty).</summary>
-        LuaConfig LuaConfig { get; }
+        LuaHook LuaHook { get; }
 
         /// <summary>True if the Lua config is valid and should be executed.</summary>
-        bool HasLuaConfig { get; }
+        bool HasLuaHook { get; }
     }
 
 }

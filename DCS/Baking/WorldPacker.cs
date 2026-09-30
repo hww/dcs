@@ -17,7 +17,10 @@ namespace DCS.Baking
         public static void BakeActiveSceneMenu()
         {
             Scene scene=SceneManager.GetActiveScene();
-            if(!scene.IsValid()||!scene.isLoaded){Debug.LogError("[WorldPacker] Active scene is invalid or unloaded.");return;}
+            if(!scene.IsValid()||!scene.isLoaded){
+                Debug.LogError("[WorldPacker] Active scene is invalid or unloaded.");
+                return;
+            }
             const string folder="Assets/Resources/Maps"; EnsureFolder(folder);
             string path=$"{folder}/{scene.name}_dataset.asset";
             MapDataset dataset=AssetDatabase.LoadAssetAtPath<MapDataset>(path);

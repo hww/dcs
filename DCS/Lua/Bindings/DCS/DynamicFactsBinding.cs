@@ -5,10 +5,6 @@ using System.Runtime.InteropServices;
 
 namespace DCS.Lua
 {
-    /// <summary>
-    /// Lua access to DynamicFacts userdata.
-    /// Existing global function names are preserved.
-    /// </summary>
     public static class DynamicFactsBinding
     {
         public static void Register(IntPtr L)
@@ -18,54 +14,38 @@ namespace DCS.Lua
             LuaBindings.RegisterGlobalFunction(L, Lua_SetFact, "facts_set");
         }
 
-        private static DynamicFacts GetFacts(IntPtr L)
+        /// <summary>
+        /// Извлекает DynamicFacts из userdata. Бросает Lua-ошибку,
+        /// если аргумент не userdata или GCHandle невалидный.
+        /// </summary>
+        private static DynamicFacts GetFacts(IntPtr L, ArgReader args, string funcName)
         {
-            if (LuaNative.lua_type(L, 1) != LuaNative.LUA_TUSERDATA)
-            {
-                LuaNative.lua_error(L, "Expected DynamicFacts as first argument");
-                return null;
-            }
-
-            IntPtr ptr = LuaNative.lua_touserdata(L, 1);
+            IntPtr ptr = args.CheckUserdataRaw(1);
             if (ptr == IntPtr.Zero)
-            {
-                LuaNative.lua_error(L, "Invalid userdata");
-                return null;
-            }
+                LuaFail.Fail(L, funcName, "argument #1: invalid userdata pointer");
 
             GCHandle handle = GCHandle.FromIntPtr(Marshal.ReadIntPtr(ptr));
             if (!handle.IsAllocated)
-            {
-                LuaNative.lua_error(L, "Invalid DynamicFacts handle");
-                return null;
-            }
+                LuaFail.Fail(L, funcName, "argument #1: invalid DynamicFacts handle");
 
             DynamicFacts facts = handle.Target as DynamicFacts;
             if (facts == null)
-            {
-                LuaNative.lua_error(L, "Invalid DynamicFacts object");
-                return null;
-            }
+                LuaFail.Fail(L, funcName, "argument #1: not a DynamicFacts object");
 
             return facts;
-        }
-
-        private static string GetFactName(IntPtr L)
-        {
-            IntPtr strPtr = LuaNative.lua_tolstring(L, 2, IntPtr.Zero);
-            return strPtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(strPtr) : null;
         }
 
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_GetFact(IntPtr L)
         {
-            DynamicFacts facts = GetFacts(L);
-            if (facts == null)
-                return 0;
+            var args = new ArgReader(L, "facts_get");
+            args.ExpectExactly(2);
 
-            string factName = GetFactName(L);
+            DynamicFacts facts = GetFacts(L, args, "facts_get");
+            string factName = args.CheckString(2);
+
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.lua_error(L, "Fact name required");
+                LuaFail.Fail(L, "facts_get", "argument #2: fact name must not be empty");
 
             if (!facts.GetFact(factName, L))
             {
@@ -79,13 +59,14 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_TryGetFact(IntPtr L)
         {
-            DynamicFacts facts = GetFacts(L);
-            if (facts == null)
-                return 0;
+            var args = new ArgReader(L, "facts_try_get");
+            args.ExpectExactly(2);
 
-            string factName = GetFactName(L);
+            DynamicFacts facts = GetFacts(L, args, "facts_try_get");
+            string factName = args.CheckString(2);
+
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.lua_error(L, "Fact name required");
+                LuaFail.Fail(L, "facts_try_get", "argument #2: fact name must not be empty");
 
             bool exists = facts.Contains(factName);
             bool pushed = facts.GetFact(factName, L);
@@ -101,13 +82,15 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_SetFact(IntPtr L)
         {
-            DynamicFacts facts = GetFacts(L);
-            if (facts == null)
-                return 0;
+            var args = new ArgReader(L, "facts_set");
+            args.ExpectExactly(3);
 
-            string factName = GetFactName(L);
+            DynamicFacts facts = GetFacts(L, args, "facts_set");
+            string factName = args.CheckString(2);
+            args.CheckAny(3);   // значение — любой тип
+
             if (string.IsNullOrEmpty(factName))
-                return LuaNative.lua_error(L, "Fact name required");
+                LuaFail.Fail(L, "facts_set", "argument #2: fact name must not be empty");
 
             facts.SetFact(factName, L);
             return 0;

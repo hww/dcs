@@ -15,14 +15,6 @@ namespace DCS.Game.SoldierLua
         public Vector3 Value;
     }
 
-    /// <summary>Связка Host ↔ GameObject в сцене.</summary>
-    [ComponentPool(1000)]
-    public struct ViewComponent : IComponent
-    {
-        public int RosterIndex { get; set; }
-        public int ViewId;
-        public Actor Actor;
-    }
 
     /// <summary>Yaw/Pitch — куда смотрит солдат.</summary>
     [ComponentPool(1000)]

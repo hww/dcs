@@ -176,10 +176,10 @@ namespace DCS.Core
             Invalidate(host);
         }
 
-        public static IHostReference GetActor(Handle handle)
+        public static IHostReference GetActor(Host host)
         {
-            int id = handle.Id;
-            if (id >= MaxGameObjects || GlobalHosts[id].Generation != handle.Generation)
+            int id = host.Id;
+            if (id >= MaxGameObjects || GlobalHosts[id].Generation != host.Generation)
                 return null;
 
             ref GCHandle gch = ref _actorHandles[id];

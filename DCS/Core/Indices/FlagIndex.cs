@@ -4,14 +4,14 @@ namespace DCS.Core
 {
     /// <summary>
     /// Derived index: tag bit -> list of hostIds.
-    /// Rebuild is O(N) over TagComponent pool.
+    /// Rebuild is O(N) over ArchetypeComponent pool.
     /// </summary>
-    public sealed class TagIndex
+    public sealed class FlagIndex
     {
         // 32 buckets, one per bit.
         private readonly List<ushort>[] _byBit = new List<ushort>[32];
 
-        public TagIndex()
+        public FlagIndex()
         {
             for (int i = 0; i < 32; i++) _byBit[i] = new List<ushort>(64);
         }

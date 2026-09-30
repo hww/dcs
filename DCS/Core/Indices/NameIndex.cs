@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace DCS.Core
 {
@@ -9,24 +10,35 @@ namespace DCS.Core
     /// </summary>
     public sealed class NameIndex
     {
-        private readonly Dictionary<string, ushort> _byName = new(1024);
+        private readonly Dictionary<uint, ushort> _byName = new(1024);
 
-        public void Add(string name, ushort hostId)
+        public void Add(Name name, ushort hostId)
         {
-            if (string.IsNullOrEmpty(name)) return;
-            _byName[name] = hostId;
+            if (_byName.TryGetValue(name.Id, out ushort aHostId))
+            {
+                if (aHostId != hostId)
+                {
+                    return;
+                } else
+                {
+                    Debug.Log($"[NameIndex] The name `{name.ToString()}` is already used.");
+                    return;
+                }
+            }
+
+            _byName[name.Id] = hostId;
         }
 
-        public void Remove(string name)
+        public void Remove(Name name)
         {
-            if (string.IsNullOrEmpty(name)) return;
-            _byName.Remove(name);
+            _byName.Remove(name.Id);
         }
 
-        public bool TryGet(string name, out ushort hostId)
+        public bool TryGet(Name name, out ushort hostId)
         {
-            return _byName.TryGetValue(name, out hostId);
+            return _byName.TryGetValue(name.Id, out hostId);
         }
+
 
         public void Clear() => _byName.Clear();
         public int Count => _byName.Count;

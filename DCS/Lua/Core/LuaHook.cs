@@ -6,7 +6,7 @@ namespace DCS.Lua
     /// No search tags, no radii, no prefabs — those live elsewhere.
     /// </summary>
     [System.Serializable]
-    public struct LuaConfig
+    public struct LuaHook
     {
         [UnityEngine.Tooltip(
             "Lua module name without .lua extension. " +

@@ -26,6 +26,12 @@ MonoBehaviour:
     Enabled: 1
     AutoStart: 0
     FactsJson: '{}'
+  - Id: 46716
+    Key: 
+    ScriptPath: 
+    Enabled: 1
+    AutoStart: 0
+    FactsJson: '{}'
   StrongPoints: []
   Regions:
   - Id: 45912
@@ -41,6 +47,13 @@ MonoBehaviour:
     Key: 
     Enabled: 1
     ShapeCount: 1
+    FactsJson: '{}'
+  - Id: 40876
+    EncounterId: 46716
+    StrongPointId: 0
+    Key: 
+    Enabled: 1
+    ShapeCount: 3
     FactsJson: '{}'
   Triggers: []
   NavigationSurfaces: []
@@ -58,6 +71,9 @@ MonoBehaviour:
   - HostId: 0
     Position: {x: -10, y: 0, z: 0}
     EntityClass: 
+  - HostId: 0
+    Position: {x: 0, y: 0, z: 10}
+    EntityClass: 
   Locators: []
   SpatialProxies:
   - SpatialId: 0
@@ -66,8 +82,8 @@ MonoBehaviour:
     Geometry:
       Type: 3
       Index: 0
-    AABBMin: {x: 9, y: 0, z: -1}
-    AABBMax: {x: 11, y: 2, z: 1}
+    AABBMin: {x: 8.940169, y: 0, z: -1.5858116}
+    AABBMax: {x: 11.021041, y: 2.1080527, z: 1.4793046}
   - SpatialId: 1
     OwnerId: 58846
     ObjectType: 1
@@ -76,25 +92,59 @@ MonoBehaviour:
       Index: 1
     AABBMin: {x: -11, y: 0, z: -1}
     AABBMax: {x: -9, y: 2, z: 1}
-  Spheres: []
-  Boxes: []
-  Cylinders: []
+  - SpatialId: 2
+    OwnerId: 40876
+    ObjectType: 1
+    Geometry:
+      Type: 1
+      Index: 0
+    AABBMin: {x: -6.0863743, y: -0.40792143, z: 9.042079}
+    AABBMax: {x: -3.9136257, y: 1.5079215, z: 10.957921}
+  - SpatialId: 3
+    OwnerId: 40876
+    ObjectType: 1
+    Geometry:
+      Type: 2
+      Index: 0
+    AABBMin: {x: -1, y: 0.08092475, z: 9}
+    AABBMax: {x: 1, y: 2.0390751, z: 11}
+  - SpatialId: 4
+    OwnerId: 40876
+    ObjectType: 1
+    Geometry:
+      Type: 0
+      Index: 0
+    AABBMin: {x: 2.961985, y: -0.95801485, z: 7.961985}
+    AABBMax: {x: 7.038015, y: 3.1180148, z: 12.038015}
+  Spheres:
+  - Center: {x: 5, y: 1.08, z: 10}
+    Radius: 2.038015
+  Boxes:
+  - Center: {x: -5, y: 0.55, z: 10}
+    Extents: {x: 1.0863743, y: 0.95792145, z: 0.95792145}
+    Rotation: {x: -0, y: -0, z: -0, w: 1}
+  Cylinders:
+  - Center: {x: 0, y: 1.06, z: 10}
+    Radius: 1
+    HalfHeight: 0.9790752
+    Rotation: {x: -0, y: -0, z: -0, w: 1}
   Polygons:
   - StartIndex: 0
-    PointCount: 4
+    PointCount: 5
     MinY: 0
-    MaxY: 2
+    MaxY: 2.1080527
     Closed: 1
-  - StartIndex: 4
+  - StartIndex: 5
     PointCount: 4
     MinY: 0
     MaxY: 2
     Closed: 1
   PolygonPoints:
-  - {x: 9, y: 1, z: -1}
-  - {x: 9, y: 1, z: 1}
-  - {x: 11, y: 1, z: 1}
-  - {x: 11, y: 1, z: -1}
+  - {x: 9, y: 1.0540264, z: -1}
+  - {x: 8.940169, y: 1.0540264, z: 1.4793046}
+  - {x: 11.021041, y: 1.0540264, z: 1.4674772}
+  - {x: 11, y: 1.0540264, z: -1}
+  - {x: 9.96435, y: 1.0540264, z: -1.5858116}
   - {x: -11, y: 1, z: -1}
   - {x: -11, y: 1, z: 1}
   - {x: -9, y: 1, z: 1}

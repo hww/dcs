@@ -70,8 +70,8 @@ namespace DCS.Game.SoldierCS
                 Host host = inputPool.Roster[input.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
                 Handle hVel = DCSystem.Get<VelocityComponent>(host, chain);
@@ -122,8 +122,8 @@ namespace DCS.Game.SoldierCS
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
                 Handle hCombat = DCSystem.Get<CombatStateComponent>(host, chain);
                 Handle hLoco = DCSystem.Get<LocomotionComponent>(host, chain);
@@ -156,8 +156,8 @@ namespace DCS.Game.SoldierCS
                 Host host = viewPool.Roster[view.RosterIndex].Host;
                 if (!HostManager.IsValid(host)) continue;
 
-                Handle hTag = DCSystem.Get<TagComponent>(host, chain);
-                if (hTag.IsNull) continue;
+                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
+                if (hType.IsNull) continue;
 
                 Handle hPos = DCSystem.Get<PositionComponent>(host, chain);
                 Handle hInp = DCSystem.Get<InputComponent>(host, chain);

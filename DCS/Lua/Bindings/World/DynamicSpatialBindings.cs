@@ -2,15 +2,12 @@ using DCS.Core;
 using DCS.Spatial;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using AOT;
 using UnityEngine;
 
 namespace DCS.Lua
 {
-    /// <summary>
-    /// Queries over DynamicSpatial of a specific Domain.
-    /// Lua signature: first arg is domainId, then coordinates.
-    /// Returns Host packed ints.
-    /// </summary>
     public static class DynamicSpatialBindings
     {
         private static readonly List<ushort> _results = new List<ushort>(64);
@@ -29,21 +26,24 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryRadius(IntPtr L)
         {
-            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
-            {
-                LuaNative.lua_newtable(L);
-                return 1;
-            }
-            if (!domain.HasSpatial ||
+            var args = new ArgReader(L, "DynamicSpatial.QueryRadius");
+            args.ExpectInRange(5, 6);
+
+            args.CheckUserdataRaw(1);
+            Vector3 center = ReadVector3(args, 2);
+            float radius = (float)args.CheckNumber(5);
+
+            ESpatialObjectType type = ESpatialObjectType.Generic;
+            if (args.Count >= 6)
+                type = (ESpatialObjectType)(byte)args.CheckInteger(6);
+
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain) ||
+                !domain.HasSpatial ||
                 !SpatialDomainRegistry.TryGet(domain.SpatialDomainId, out SpatialDomain spatial))
             {
                 LuaNative.lua_newtable(L);
                 return 1;
             }
-
-            Vector3 center = ReadVector3(L, 2);
-            float radius = LuaArgumentReader.ReadFloat(L, 5);
-            ESpatialObjectType type = ReadTypeOrDefault(L, 6);
 
             _results.Clear();
             var filter = type == ESpatialObjectType.Generic
@@ -58,20 +58,23 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_QueryPoint(IntPtr L)
         {
-            if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
-            {
-                LuaNative.lua_newtable(L);
-                return 1;
-            }
-            if (!domain.HasSpatial ||
+            var args = new ArgReader(L, "DynamicSpatial.QueryPoint");
+            args.ExpectInRange(4, 5);
+
+            args.CheckUserdataRaw(1);
+            Vector3 point = ReadVector3(args, 2);
+
+            ESpatialObjectType type = ESpatialObjectType.Generic;
+            if (args.Count >= 5)
+                type = (ESpatialObjectType)(byte)args.CheckInteger(5);
+
+            if (!HostResolver.TryGetDomain(L, 1, out Domain domain) ||
+                !domain.HasSpatial ||
                 !SpatialDomainRegistry.TryGet(domain.SpatialDomainId, out SpatialDomain spatial))
             {
                 LuaNative.lua_newtable(L);
                 return 1;
             }
-
-            Vector3 point = ReadVector3(L, 2);
-            ESpatialObjectType type = ReadTypeOrDefault(L, 5);
 
             _results.Clear();
             var filter = type == ESpatialObjectType.Generic
@@ -88,25 +91,31 @@ namespace DCS.Lua
         [AOT.MonoPInvokeCallback(typeof(Func<IntPtr, int>))]
         private static int Lua_Contains(IntPtr L)
         {
+            var args = new ArgReader(L, "DynamicSpatial.Contains");
+            args.ExpectExactly(5);
+
+            args.CheckUserdataRaw(1);
+            Vector3 point = ReadVector3(args, 2);
+            int hostId = (int)args.CheckInteger(5);
+
             // Not implemented yet. Return false.
+            // Когда реализуешь — используй point и hostId.
+            _ = point;
+            _ = hostId;
             LuaNative.lua_pushboolean(L, 0);
             return 1;
         }
 
-        private static Vector3 ReadVector3(IntPtr L, int index)
-        {
-            float x = LuaArgumentReader.ReadFloat(L, index);
-            float y = LuaArgumentReader.ReadFloat(L, index + 1);
-            float z = LuaArgumentReader.ReadFloat(L, index + 2);
-            return new Vector3(x, y, z);
-        }
+        // ============================================================
+        //  Внутреннее
+        // ============================================================
 
-        private static ESpatialObjectType ReadTypeOrDefault(IntPtr L, int index)
+        private static Vector3 ReadVector3(ArgReader args, int startIndex)
         {
-            if (LuaNative.lua_gettop(L) < index) return ESpatialObjectType.Generic;
-            int t = LuaArgumentReader.ReadInt(L, index);
-            if (t < 0 || t > byte.MaxValue) return ESpatialObjectType.Generic;
-            return (ESpatialObjectType)(byte)t;
+            float x = (float)args.CheckNumber(startIndex);
+            float y = (float)args.CheckNumber(startIndex + 1);
+            float z = (float)args.CheckNumber(startIndex + 2);
+            return new Vector3(x, y, z);
         }
 
         private static void PushHostArray(IntPtr L, List<ushort> hosts)

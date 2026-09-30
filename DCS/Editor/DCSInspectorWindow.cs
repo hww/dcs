@@ -29,6 +29,18 @@ namespace DCS.Editor
         private bool _showRoster = true;
         private bool _showEmptyPools = false;
 
+        // Фильтр по домену.
+        // -1  => "All" (показывать все домены)
+        // >=0 => id конкретного домена
+        private const int DomainFilterAll = -1;
+        private int _domainFilter = DomainFilterAll;
+        private string _domainSearch = string.Empty;
+        private bool _domainDropdownOpen;
+
+        // Кэш имён доменов для отрисовки (обновляется при Repaint).
+        private readonly List<(int id, string name)> _domainCache = new(8);
+        private int _domainCacheCount = -1;
+
         // Ключ — (EntityId GameObject, Id домена). EntityId — структура,
         // корректно работает как часть составного ключа.
         private readonly Dictionary<(EntityId goId, int domainId), bool> _foldouts = new();
@@ -84,6 +96,7 @@ namespace DCS.Editor
         // ------------------------------------------------------------
         private void OnGUI()
         {
+            RefreshDomainCache();
             DrawToolbar();
 
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
@@ -107,6 +120,37 @@ namespace DCS.Editor
             EditorGUILayout.EndScrollView();
         }
 
+        // ------------------------------------------------------------
+        //  Кэш доменов
+        // ------------------------------------------------------------
+        private void RefreshDomainCache()
+        {
+            int count = DomainRegistry.Count;
+            if (count == _domainCacheCount)
+                return;
+
+            _domainCacheCount = count;
+            _domainCache.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                var d = DomainRegistry.Get(i);
+                if (d == null) continue;
+                _domainCache.Add((d.Id, d.Name.ToString()));
+            }
+
+            // Если выбранный домен исчез — сбрасываем на All.
+            if (_domainFilter != DomainFilterAll)
+            {
+                bool found = false;
+                for (int i = 0; i < _domainCache.Count; i++)
+                    if (_domainCache[i].id == _domainFilter) { found = true; break; }
+                if (!found) _domainFilter = DomainFilterAll;
+            }
+        }
+
+        // ------------------------------------------------------------
+        //  Toolbar
+        // ------------------------------------------------------------
         private void DrawToolbar()
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
@@ -123,6 +167,10 @@ namespace DCS.Editor
                 _showEmptyPools = GUILayout.Toggle(
                     _showEmptyPools, "Empty Pools",
                     EditorStyles.toolbarButton, GUILayout.Width(90));
+
+                GUILayout.Space(8);
+                DrawDomainSelector();
+
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button(
                         "Refresh",
@@ -131,6 +179,64 @@ namespace DCS.Editor
                 {
                     Repaint();
                 }
+            }
+        }
+
+        private void DrawDomainSelector()
+        {
+            string current = "Domain: All";
+            if (_domainFilter != DomainFilterAll)
+            {
+                current = "Domain: ?";
+                for (int i = 0; i < _domainCache.Count; i++)
+                {
+                    if (_domainCache[i].id == _domainFilter)
+                    {
+                        current = $"Domain: {_domainCache[i].name}";
+                        break;
+                    }
+                }
+            }
+
+            var rect = GUILayoutUtility.GetRect(
+                new GUIContent(current),
+                EditorStyles.toolbarDropDown,
+                GUILayout.Width(180));
+
+            if (EditorGUI.DropdownButton(rect, new GUIContent(current), FocusType.Keyboard, EditorStyles.toolbarDropDown))
+            {
+                _domainDropdownOpen = true;
+                var menu = new GenericMenu();
+
+                menu.AddItem(new GUIContent("All"), _domainFilter == DomainFilterAll, () =>
+                {
+                    _domainFilter = DomainFilterAll;
+                    _foldouts.Clear();
+                    Repaint();
+                });
+                menu.AddSeparator(string.Empty);
+
+                if (_domainCache.Count == 0)
+                {
+                    menu.AddDisabledItem(new GUIContent("(нет доменов)"));
+                }
+                else
+                {
+                    for (int i = 0; i < _domainCache.Count; i++)
+                    {
+                        int id = _domainCache[i].id;
+                        string name = _domainCache[i].name;
+                        bool on = _domainFilter == id;
+                        menu.AddItem(new GUIContent($"[{id}] {name}"), on, () =>
+                        {
+                            _domainFilter = id;
+                            _foldouts.Clear();
+                            Repaint();
+                        });
+                    }
+                }
+
+                menu.DropDown(rect);
             }
         }
 
@@ -196,11 +302,28 @@ namespace DCS.Editor
                 return;
             }
 
-            for (int d = 0; d < domainCount; d++)
+            if (_domainFilter == DomainFilterAll)
             {
-                var domain = DomainRegistry.Get(d);
-                if (domain == null) continue;
-                DrawDomain(go, host, domain);
+                for (int d = 0; d < domainCount; d++)
+                {
+                    var domain = DomainRegistry.Get(d);
+                    if (domain == null) continue;
+                    DrawDomain(go, host, domain);
+                }
+            }
+            else
+            {
+                var domain = DomainRegistry.Get(_domainFilter);
+                if (domain == null)
+                {
+                    EditorGUILayout.LabelField(
+                        $"(домен {_domainFilter} не найден)",
+                        EditorStyles.miniLabel);
+                }
+                else
+                {
+                    DrawDomain(go, host, domain);
+                }
             }
 
             EditorGUILayout.EndVertical();
@@ -404,7 +527,6 @@ namespace DCS.Editor
             Type t = boxed.GetType();
             FieldInfo[] fields = GetPublicInstanceFields(t);
 
-            // Отфильтровываем технический RosterIndex
             int visible = 0;
             for (int i = 0; i < fields.Length; i++)
                 if (fields[i].Name != "RosterIndex") visible++;
@@ -436,9 +558,6 @@ namespace DCS.Editor
             EditorGUI.indentLevel--;
         }
 
-        // Рекурсивная отрисовка значения.
-        // Вложенные структуры (не примитивы и не известные Unity-типы)
-        // разворачиваются в подполе.
         private void DrawValueRow(string name, object value, int depth)
         {
             if (value == null)
@@ -454,7 +573,6 @@ namespace DCS.Editor
                 return;
             }
 
-            // Заголовок вложенной структуры
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.Space(depth * 12);
@@ -489,6 +607,10 @@ namespace DCS.Editor
             if (!t.IsValueType) return false;
             if (t.IsPrimitive) return false;
             if (t.IsEnum) return false;
+
+            // Наши типы, которые умеют в ToString() и не должны разворачиваться
+            if (t == typeof(Name)) return false;
+
             if (t == typeof(decimal)) return false;
             if (t == typeof(IntPtr)) return false;
             if (t == typeof(UIntPtr)) return false;
@@ -500,8 +622,8 @@ namespace DCS.Editor
             if (t == typeof(Color32)) return false;
             if (t == typeof(Rect)) return false;
             if (t == typeof(Bounds)) return false;
-            // Не раскрываем сам IComponent — у него только RosterIndex
             if (typeof(IComponent).IsAssignableFrom(t)) return false;
+
             return true;
         }
 
@@ -512,6 +634,8 @@ namespace DCS.Editor
             if (value is bool b) return b ? "true" : "false";
             if (value is float f) return f.ToString("0.#####");
             if (value is double d) return d.ToString("0.#####");
+            if (value is Name n)
+                return n.ToString();
             if (value is Vector3 v3)
                 return $"({v3.x:0.###}, {v3.y:0.###}, {v3.z:0.###})";
             if (value is Vector2 v2)
@@ -522,14 +646,13 @@ namespace DCS.Editor
                 return $"({q.x:0.##}, {q.y:0.##}, {q.z:0.##}, {q.w:0.##})";
             if (value is Color c)
                 return $"RGBA({c.r:0.##}, {c.g:0.##}, {c.b:0.##}, {c.a:0.##})";
+
             return value.ToString();
         }
 
         // ------------------------------------------------------------
         //  Рефлексия по пулам
         // ------------------------------------------------------------
-
-        // Находит generic ComponentPool<> в иерархии типа пула.
         private static Type FindComponentPoolBase(Type t)
         {
             while (t != null)
@@ -607,7 +730,6 @@ namespace DCS.Editor
 
             object raw = fi.GetValue(pool);
             if (raw == null) return -1;
-            // Partition — ushort в ComponentPool<T>
             try { return Convert.ToInt32(raw); }
             catch { return -1; }
         }
