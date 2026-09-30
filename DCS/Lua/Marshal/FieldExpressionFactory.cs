@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using DCS.Lua;
+using UnityEngine;
 
 namespace DCS.Lua
 {
@@ -137,7 +138,26 @@ namespace DCS.Lua
                 exprs.Add(Expression.Call(pushMethod, luaParam, accessExpr));
                 return true;
             }
+            if (targetType == typeof(DCS.Core.Name))
+            {
+                // вызвать name.ToString() → pushstring
+                var toStringMethod = typeof(DCS.Core.Name).GetMethod(
+                    nameof(object.ToString), Type.EmptyTypes);
+                var pushStringMethod = typeof(LuaNative).GetMethod(
+                    "lua_pushstring", new[] { typeof(IntPtr), typeof(string) });
 
+                var strValue = Expression.Call(accessExpr, toStringMethod);
+                exprs.Add(Expression.Call(pushStringMethod, luaParam, strValue));
+                return true;
+            }
+            if (targetType == typeof(Vector3))
+            {
+                var method = typeof(VectorMarshalling).GetMethod(
+                    nameof(VectorMarshalling.PushVector3));
+
+                exprs.Add(Expression.Call(method, luaParam, accessExpr));
+                return true;
+            }
             // RECURSIVE LAYOUT PARSING: Auto-unboxing nested structural sub-objects (Vector3, Color, custom structs)
             if (targetType.IsValueType && !targetType.IsPrimitive)
             {
@@ -199,7 +219,32 @@ namespace DCS.Lua
                 var luaValuePtr = Expression.Call(tolStringMethod, luaParam, Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
                 var marshalMethod = typeof(System.Runtime.InteropServices.Marshal).GetMethod("PtrToStringUTF8", new[] { typeof(IntPtr) });
                 var stringValue = Expression.Call(marshalMethod, luaValuePtr); exprs.Add(Expression.Assign(accessExpr, stringValue)); return true;
-            }// RECURSIVE STRUCT LAYOUT SETTER: Reconstruct subsets from stack offsets top-to-bottom sequentially
+            }
+            if (targetType == typeof(DCS.Core.Name))
+            {
+                // прочитать строку с вершины стека, вызвать new Name(string)
+                var readString = typeof(LuaArgumentReader).GetMethod(
+                    nameof(LuaArgumentReader.ReadString),
+                    new[] { typeof(IntPtr), typeof(int) });
+                var nameCtor = typeof(DCS.Core.Name).GetConstructor(new[] { typeof(string) });
+
+                var strValue = Expression.Call(readString, luaParam, Expression.Constant(stackOffset--));
+                var nameValue = Expression.New(nameCtor, strValue);
+                exprs.Add(Expression.Assign(accessExpr, nameValue));
+                return true;
+            }
+
+            if (targetType == typeof(Vector3))
+            {
+                var method = typeof(VectorMarshalling).GetMethod(
+                    nameof(VectorMarshalling.ReadVector3OrDefault));
+
+                exprs.Add(Expression.Assign(
+                    accessExpr,
+                    Expression.Call(method, luaParam, Expression.Constant(stackOffset--))));
+                return true;
+            }
+            // RECURSIVE STRUCT LAYOUT SETTER: Reconstruct subsets from stack offsets top-to-bottom sequentially
             if (targetType.IsValueType && !targetType.IsPrimitive)
             {
                 var subFields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance); if (subFields.Length == 0) return false;

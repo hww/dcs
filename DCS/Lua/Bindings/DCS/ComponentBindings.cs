@@ -239,7 +239,7 @@ namespace DCS.Lua
         private static int Lua_TryGetField(IntPtr L)
         {
             var args = new ArgReader(L, "TryGetField");
-            args.ExpectExactly(4);
+            args.ExpectExactly(5);
 
             args.CheckInteger(1);
             int typeId = (int)args.CheckInteger(2);

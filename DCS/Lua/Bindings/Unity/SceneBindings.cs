@@ -275,7 +275,7 @@ namespace DCS.Lua
                 }
 
                 Host host = HostManager.CreateHost();
-                actor.LinkToHost(host);
+                HostManager.LinkHostReference(host, actor);
 
                 // --- PositionComponent ---
                 Handle hPos = DCSystem.Allocate<PositionComponent>(host, domain.HostChain);

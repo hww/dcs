@@ -80,6 +80,7 @@ namespace DCS.Lua
             GameObject prefab = Resources.Load<GameObject>(prefabPath);
             if (prefab == null)
             {
+                Debug.LogError($"[DCS.Spawn] Prefab not found in Resources: '{prefabPath}'");
                 LuaNative.lua_pushnil(L);
                 return 1;
             }

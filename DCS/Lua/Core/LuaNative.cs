@@ -38,6 +38,29 @@ namespace DCS.Lua
         public static extern int lua_pcall(IntPtr L, int nargs, int nresults, int errfunc);
 
         // ============================================================
+        // ---- userdata ----
+        // ============================================================
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_newuserdatauv", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr lua_newuserdatauv(IntPtr L, UIntPtr size, int nuvalue);
+
+        // ============================================================
+        // ---- metatable ----
+        // ============================================================
+
+        [DllImport(LUA_DLL, EntryPoint = "luaL_newmetatable", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int luaL_newmetatable(IntPtr L, string tname);
+
+        [DllImport(LUA_DLL, EntryPoint = "luaL_setmetatable", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void luaL_setmetatable(IntPtr L, string tname);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_setmetatable", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int lua_setmetatable(IntPtr L, int objindex);
+
+        [DllImport(LUA_DLL, EntryPoint = "lua_getmetatable", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int lua_getmetatable(IntPtr L, int objindex);
+
+        // ============================================================
         //  GLOBALS
         // ============================================================
 
