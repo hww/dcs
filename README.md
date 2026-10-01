@@ -1,22 +1,61 @@
+Хорошо. Вот **правленый** README. Готов к копированию.
+
+---
+
+```markdown
 # Dynamic Component System (DCS)
 
-**High-performance, universal gameplay framework for Unity.**
+A dynamic component framework for Unity that supports data-oriented runtime systems,
+world metadata, spatial queries and Lua scripting.
 
-DCS is a dynamic component architecture designed to support data-oriented runtime
-systems, world data, spatial metadata, navigation, interaction and Lua scripting.
+## Background
 
-The system is intentionally more abstract than a typical Unity gameplay framework.
-That complexity is deliberate:
+DCS started as a personal experiment: could a data-oriented system be built in Unity,
+on C#, with Lua as a thin scripting layer?
 
-> **Universal systems require abstractions.  
-> More abstractions require clearer boundaries.  
-> This repository structure is part of the architecture.**
+The full story — including the design decisions, the trade-offs and the honest
+conclusions — is in the experiment report:
+
+**[RU] Experiment report (in Russian)**
+[Read article](https://hww.github.io/articles/2026/dcs_unity/)
+
+---
+
+## Core Philosophy
+
+### Universalize contracts, not implementations
+
+Different systems may use different internal data structures while exposing stable
+contracts to their consumers.
+
+### Separate data from behavior
+
+Compiled world data should be optimized for consumption by runtime systems.
+
+### Keep domain boundaries explicit
+
+A class should have one obvious architectural home.
+
+### Avoid universal managers
+
+Do not create a manager simply because several systems need to communicate.
+Prefer small systems with explicit contracts.
+
+### Build expensive information offline
+
+If information can be compiled once, do not reconstruct it every frame or every load.
+
+### Optimize the hot path without hiding the architecture
+
+Performance-oriented storage belongs inside the appropriate subsystem. The public
+architecture should remain understandable.
 
 ---
 
 ## Architecture at a Glance
 
-DCS is organized around the questions each system answers:
+Every subsystem in DCS answers **one** question. This is not a stylistic choice —
+it is how the framework keeps boundaries explicit.
 
 ```text
 Core
@@ -71,8 +110,6 @@ The main relationship is:
 
 Main DCS Manifest [README](DCS/README.md)
 
-The secondary level manifests list
-
 | Module | Question | Responsibility | Documentation |
 | --- | --- | --- | --- |
 | **Core** | How does everything work? | Dynamic components, hosts, handles, facts, events and scheduling | [README](DCS/Core/README.md) · [Reference](DCS/Docs/DCS_Core_Reference.md) |
@@ -92,43 +129,14 @@ The secondary level manifests list
 
 DCS uses two documentation levels.
 
-## Module READMEs
+**Module READMEs.** Every major module has a short `README.md`. These describe
+purpose, responsibilities, what the module does *not* own, dependency direction,
+mental model and internal structure. They are architectural maps, not API references.
 
-Every major module has a short `README.md`.
-
-These documents describe:
-
-- purpose;
-- responsibilities;
-- what the module does **not** own;
-- dependency direction;
-- mental model;
-- internal structure.
-
-They are architectural maps, not API references.
-
-```text
-Core/README.md
-World/README.md
-Spatial/README.md
-Gameplay/README.md
-Navigation/README.md
-Interaction/README.md
-Lua/README.md
-Libs/README.md
-Plugins/README.md
-Examples/README.md
-Tests/README.md
-```
-
-## Detailed Documentation
-
-Long-form technical documentation lives in `DCS/Docs/`.
-
-The existing `dcs-documentation.md` describes the **Core DCS implementation**:
-hosts, handles, component pools, event systems, chains, registries and scheduling.
-
-It should therefore be renamed to:
+**Detailed documentation.** Long-form technical documentation lives in `DCS/Docs/`.
+The existing `dcs-documentation.md` describes the **Core DCS implementation** —
+hosts, handles, component pools, event systems, chains, registries and scheduling —
+and should be renamed to:
 
 ```text
 Docs/DCS_Core_Reference.md
@@ -138,29 +146,15 @@ This keeps the name aligned with what the document actually describes.
 
 ---
 
-# Architectural Boundaries
+## Architectural Boundaries
 
 DCS deliberately separates concepts that are often mixed together.
 
-### World
-
-Describes what exists, how it is authored, compiled and streamed.
-
-### Spatial
-
-Describes where things are and what spatial metadata is associated with them.
-
-### Navigation
-
-Describes where an agent can move and how it can traverse the world.
-
-### Interaction
-
-Describes what actions are available at an object or location.
-
-### Gameplay
-
-Describes what those facts mean for the game and what happens as a consequence.
+- **World** — what exists, how it is authored, compiled and streamed.
+- **Spatial** — where things are and what spatial metadata is associated with them.
+- **Navigation** — where an agent can move and how it can traverse the world.
+- **Interaction** — what actions are available at an object or location.
+- **Gameplay** — what those facts mean for the game and what happens as a consequence.
 
 For example:
 
@@ -190,7 +184,7 @@ No single system needs to own all of these meanings.
 
 ---
 
-# Data Flow
+## Data Flow
 
 Authoring data and runtime data are intentionally separated.
 
@@ -217,39 +211,7 @@ prepared during the build phase.
 
 ---
 
-# Core Philosophy
-
-### Universalize contracts, not implementations
-
-Different systems may use different internal data structures while exposing stable
-contracts to their consumers.
-
-### Separate data from behavior
-
-Compiled world data should be optimized for consumption by runtime systems.
-
-### Keep domain boundaries explicit
-
-A class should have one obvious architectural home.
-
-### Avoid universal managers
-
-Do not create a manager simply because several systems need to communicate.
-
-Prefer small systems with explicit contracts.
-
-### Build expensive information offline
-
-If information can be compiled once, do not reconstruct it every frame or every load.
-
-### Optimize the hot path without hiding the architecture
-
-Performance-oriented storage belongs inside the appropriate subsystem. The public
-architecture should remain understandable.
-
----
-
-# Repository Structure
+## Repository Structure
 
 ```text
 Assets/DCS/
@@ -264,13 +226,13 @@ Assets/DCS/
 ├── Libs/             → What makes implementation easier?
 ├── Plugins/          → What external code do we use?
 ├── Examples/         → How do we use DCS?
-├── Tests/             → Does it work?
-└── Docs/              → Detailed technical documentation
+├── Tests/            → Does it work?
+└── Docs/             → Detailed technical documentation
 ```
 
 ---
 
-# A Rule for Adding New Code
+## A Rule for Adding New Code
 
 When adding a new feature, ask:
 
@@ -295,14 +257,14 @@ Is it generic infrastructure?
 ```
 
 If the answer is unclear, do not immediately create another `Manager`.
-
 The ambiguity usually means that the responsibility needs to be clarified first.
 
 ---
 
-# Status
+## Status
 
 DCS is an evolving framework.
 
 The module READMEs define the intended architectural boundaries.
 Detailed documentation describes the current implementation state.
+```
