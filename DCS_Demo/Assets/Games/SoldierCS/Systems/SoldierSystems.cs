@@ -169,7 +169,7 @@ namespace DCS.Game.SoldierCS
                 Transform t = view.Actor.transform;
                 if (t == null) continue;
 
-                t.position = pos.Position;
+                t.position = new Vector3(pos.Position.x, t.position.y, pos.Position.z);
                 t.rotation = Quaternion.Euler(0f, input.LookYaw, 0f);   // <-- ПОВОРОТ
             }
         }

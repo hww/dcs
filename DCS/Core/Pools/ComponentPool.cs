@@ -108,6 +108,13 @@ namespace DCS.Core
         private static RefFieldSetter<T> _compiledSetField;
 
         // ============================================================
+        // Инициализацатор 
+        // ============================================================
+
+        public delegate void InitDelegate(ref T comp, object prius);
+        public InitDelegate InitCallback;
+
+        // ============================================================
         //  STATIC CONSTRUCTOR
         // ============================================================
 
@@ -239,8 +246,8 @@ namespace DCS.Core
             comp = default;
             comp.RosterIndex = rosterIndex;
 
-            if (prius != null && comp is IInitializable initializable)
-                initializable.Init(prius);
+            if (InitCallback != null)
+                InitCallback(ref comp, prius);
 
             // Add to host chain
             Handle handle = new Handle { Id = (System.UInt16)rosterIndex, Generation = (System.UInt16)currentGen };
@@ -248,15 +255,21 @@ namespace DCS.Core
 
             return handle;
         }
+
         /// <summary>
         /// Allows non-generic allocation via the native Lua bridge
         /// </summary>
         /// <param name="hostHandle"></param>
         /// <param name="chain"></param>
         /// <returns></returns>
-        Handle IComponentPool.SystemAllocate(Host hostHandle, HostChain chain)
+        public Handle SystemAllocate(Host hostHandle, HostChain chain)
         {
             return Allocate(hostHandle, chain, null);
+        }
+
+        public Handle SystemAllocate(Host hostHandle, HostChain chain, object prius)
+        {
+            return Allocate(hostHandle, chain, prius);
         }
 
         // ============================================================

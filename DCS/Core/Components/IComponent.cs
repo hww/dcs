@@ -18,7 +18,7 @@ namespace DCS.Core
     /// This is required for correct reference updates during Swap-Back
     /// when a component is removed from the dense pool.
     /// </remarks>
-    public interface IComponent
+    public interface IComponent 
     {
         /// <summary>
         /// Component index in the Roster array.

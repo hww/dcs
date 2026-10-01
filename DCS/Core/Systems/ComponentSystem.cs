@@ -59,6 +59,12 @@ namespace DCS.Core
             return ComponentRegistry.GetPool<T>().Allocate(hostHandle, chain);
         }
 
+        public static Handle Allocate<T>(Host hostHandle, HostChain chain, object prius)
+    where T : struct, IComponent
+        {
+            return ComponentRegistry.GetPool<T>().Allocate(hostHandle, chain, prius);
+        }
+
         /// <summary>
         /// Resolves a handle to a component reference.
         /// </summary>

@@ -49,6 +49,7 @@ namespace DCS.Game.SoldierCS
     {
         public int RosterIndex { get; set; }
         public ELocomotion Value;
+
     }
 
     [ComponentPool(1000)]

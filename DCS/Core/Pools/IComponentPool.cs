@@ -26,6 +26,8 @@ namespace DCS.Core
         /// <returns></returns>
         Handle SystemAllocate(Host hostHandle, HostChain chain);
 
+        Handle SystemAllocate(Host hostHandle, HostChain chain, object prius);
+
         /// <summary>
         /// Frees a component as part of host destruction.
         /// </summary>

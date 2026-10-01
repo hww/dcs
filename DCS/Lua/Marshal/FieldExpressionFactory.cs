@@ -158,6 +158,15 @@ namespace DCS.Lua
                 exprs.Add(Expression.Call(method, luaParam, accessExpr));
                 return true;
             }
+            if (targetType == typeof(DCS.Core.Handle))
+            {
+                var pushInt = typeof(LuaNative).GetMethod("lua_pushinteger",
+                    new[] { typeof(IntPtr), typeof(long) });
+                var pack = typeof(DCS.Core.Handle).GetMethod("Pack");
+                exprs.Add(Expression.Call(pushInt, luaParam,
+                    Expression.Convert(Expression.Call(accessExpr, pack), typeof(long))));
+                return true;
+            }
             // RECURSIVE LAYOUT PARSING: Auto-unboxing nested structural sub-objects (Vector3, Color, custom structs)
             if (targetType.IsValueType && !targetType.IsPrimitive)
             {
@@ -242,6 +251,17 @@ namespace DCS.Lua
                 exprs.Add(Expression.Assign(
                     accessExpr,
                     Expression.Call(method, luaParam, Expression.Constant(stackOffset--))));
+                return true;
+            }
+            if (targetType == typeof(DCS.Core.Handle))
+            {
+                var toInt = typeof(LuaNative).GetMethod("lua_tointegerx",
+                    new[] { typeof(IntPtr), typeof(int), typeof(IntPtr) });
+                var packed = Expression.Call(toInt, luaParam,
+                    Expression.Constant(stackOffset--), Expression.Constant(IntPtr.Zero));
+                var ctor = typeof(DCS.Core.Handle).GetConstructor(new[] { typeof(int) });
+                exprs.Add(Expression.Assign(accessExpr,
+                    Expression.New(ctor, Expression.Convert(packed, typeof(int)))));
                 return true;
             }
             // RECURSIVE STRUCT LAYOUT SETTER: Reconstruct subsets from stack offsets top-to-bottom sequentially

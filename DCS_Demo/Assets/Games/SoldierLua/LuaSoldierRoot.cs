@@ -2,6 +2,7 @@ using DCS.Actors;
 using DCS.Core;
 using DCS.Lua;
 using DCS.Spatial;
+using System;
 using UnityEngine;
 
 namespace DCS.Game.SoldierLua
@@ -75,8 +76,30 @@ namespace DCS.Game.SoldierLua
                 ComponentRegistry.GetPool<PositionComponent>(),
                 radius: 0.5f);
 
+            RegisterComponentInitCallbacks();
+
             _lua = new LuaManager();
             _lua.Initialize(LuaManagerConfig.Default);
+            IntPtr L = _lua.MainState;
+
+            GameLuaBindings.RegisterAll(L);
+        }
+
+        private void RegisterComponentInitCallbacks()
+        {
+            var animPool = ComponentRegistry.GetPool<AnimationStateComponent>();
+            animPool.InitCallback = (ref AnimationStateComponent comp, object prius) =>
+            {
+                if (prius is SoldierPrius p && p.Actor != null)
+                    comp.Animator = p.Actor.Animator;
+            };
+
+            var tsPool = ComponentRegistry.GetPool<TransformStateComponent>();
+            tsPool.InitCallback = (ref TransformStateComponent comp, object prius) =>
+            {
+                if (prius is SoldierPrius p)
+                    comp.Actor = p.Actor;
+            };
         }
 
         private void Start()

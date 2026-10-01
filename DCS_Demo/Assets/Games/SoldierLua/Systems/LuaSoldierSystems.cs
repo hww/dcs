@@ -4,23 +4,23 @@ using UnityEngine;
 
 namespace DCS.Game.SoldierLua
 {
+
     // ============================================================
-    //  KEYBOARD INPUT — читает клавиатуру, пишет в KeyboardInputComponent
-    //  Только для хостов, у которых есть KeyboardInputComponent
+    //  KEYBOARD INPUT
     // ============================================================
 
     public static class KeyboardInputSystem
     {
         public const float StrafeMultiplier = 0.5f;
 
-        public static void Update(HostChain chain)   // ← без camera
+        public static void Update(HostChain chain)
         {
             var inputPool = ComponentRegistry.GetPool<KeyboardInputComponent>();
+            var lookPool = ComponentRegistry.GetPool<LookComponent>();
+
             for (int i = 0; i < inputPool.Partition; i++)
             {
                 ref KeyboardInputComponent input = ref inputPool.Components[i];
-                Host host = inputPool.Roster[input.RosterIndex].Host;
-                if (!HostManager.IsValid(host)) continue;
 
                 float forward = 0f, strafe = 0f;
                 if (Input.GetKey(KeyCode.W)) forward += 1f;
@@ -32,26 +32,19 @@ namespace DCS.Game.SoldierLua
                 input.Strafe = strafe;
                 input.Fire = Input.GetKey(KeyCode.Space);
 
-                // Yaw/Pitch — откуда? Сейчас нет LuaSoldierCamera.
-                // Вариант 1: не трогать LookComponent вообще.
-                // Вариант 2: брать из Camera.main.
-                if (Camera.main != null)
+                if (Camera.main != null && !input.LookHandle.IsNull)
                 {
-                    Handle hLook = DCSystem.Get<LookComponent>(host, chain);
-                    if (!hLook.IsNull)
-                    {
-                        ref LookComponent look = ref DCSystem.ResolveHandle<LookComponent>(hLook);
-                        Vector3 e = Camera.main.transform.eulerAngles;
-                        look.Yaw = e.y;
-                        look.Pitch = e.x;
-                    }
+                    ref LookComponent look = ref lookPool.ResolveHandle(input.LookHandle);
+                    Vector3 e = Camera.main.transform.eulerAngles;
+                    look.Yaw = e.y;
+                    look.Pitch = e.x;
                 }
             }
         }
     }
 
     // ============================================================
-    //  MOVEMENT — читает активный InputComponent и двигает PositionComponent
+    //  MOVEMENT
     // ============================================================
 
     public static class MovementSystem
@@ -60,68 +53,56 @@ namespace DCS.Game.SoldierLua
 
         public static void Update(HostChain chain, Transform cameraTransform, float dt)
         {
-            // Оси камеры в плоскости XZ
-            Vector3 camForward = cameraTransform.forward;
-            Vector3 camRight = cameraTransform.right;
-            camForward.y = 0f; camForward.Normalize();
-            camRight.y = 0f; camRight.Normalize();
-
-            var posPool = ComponentRegistry.GetPool<PositionComponent>();
-            for (int i = 0; i < posPool.Partition; i++)
+            Vector3 camForward, camRight;
+            if (cameraTransform != null)
             {
-                ref PositionComponent pos = ref posPool.Components[i];
-                Host host = posPool.Roster[pos.RosterIndex].Host;
-                if (!HostManager.IsValid(host)) continue;
+                camForward = cameraTransform.forward;
+                camRight = cameraTransform.right;
+                camForward.y = 0f; camForward.Normalize();
+                camRight.y = 0f; camRight.Normalize();
+            }
+            else
+            {
+                camForward = Vector3.forward;
+                camRight = Vector3.right;
+            }
 
-                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
-                if (hType.IsNull) continue;
+            var animPool = ComponentRegistry.GetPool<AnimationStateComponent>();
+            var posPool = ComponentRegistry.GetPool<PositionComponent>();
+            var kbPool = ComponentRegistry.GetPool<KeyboardInputComponent>();
 
-                // Смотрим, какой input-компонент есть на хосте
+            for (int i = 0; i < animPool.Partition; i++)
+            {
+                ref var anim = ref animPool.Components[i];
+                if (anim.PositionHandle.IsNull) continue;
+
+                ref var pos = ref posPool.ResolveHandle(anim.PositionHandle);
+
                 float forward = 0f, strafe = 0f;
+                bool fire = false;
 
-                Handle hKb = DCSystem.Get<KeyboardInputComponent>(host, chain);
-                if (!hKb.IsNull)
+                if (!anim.KeyboardInputHandle.IsNull)
                 {
-                    ref KeyboardInputComponent kb = ref DCSystem.ResolveHandle<KeyboardInputComponent>(hKb);
+                    ref var kb = ref kbPool.ResolveHandle(anim.KeyboardInputHandle);
                     forward = kb.Forward;
                     strafe = kb.Strafe;
-                }
-                else
-                {
-                    Handle hAi = DCSystem.Get<AIInputComponent>(host, chain);
-                    if (!hAi.IsNull)
-                    {
-                        ref AIInputComponent ai = ref DCSystem.ResolveHandle<AIInputComponent>(hAi);
-                        forward = ai.Forward;
-                        strafe = ai.Strafe;
-                    }
-                    else
-                    {
-                        Handle hW = DCSystem.Get<WaterInputComponent>(host, chain);
-                        if (!hW.IsNull)
-                        {
-                            ref WaterInputComponent w = ref DCSystem.ResolveHandle<WaterInputComponent>(hW);
-                            forward = w.Forward;
-                            strafe = w.Strafe;
-                        }
-                        else
-                        {
-                            continue;   // нет источника управления — стоим
-                        }
-                    }
+                    fire = kb.Fire;
                 }
 
-                // Мировое направление движения
                 Vector3 worldMove = camForward * forward + camRight * strafe;
                 if (worldMove.sqrMagnitude > 1f) worldMove = worldMove.normalized;
-
                 pos.Position += worldMove * RunSpeed * dt;
+
+                if (anim.IsFalling) anim.Locomotion = 0;
+                else if (fire) anim.Locomotion = 2;
+                else if (worldMove.sqrMagnitude > 0.01f) anim.Locomotion = 1;
+                else anim.Locomotion = 0;
             }
         }
     }
 
     // ============================================================
-    //  ANIMATION — какой компонент висит, тот и передаётся в Animator
+    //  ANIMATION
     // ============================================================
 
     public static class AnimationSystem
@@ -132,72 +113,54 @@ namespace DCS.Game.SoldierLua
 
         public static void Update(HostChain chain)
         {
-            var posPool = ComponentRegistry.GetPool<PositionComponent>();
-            for (int i = 0; i < posPool.Partition; i++)
+            var pool = ComponentRegistry.GetPool<AnimationStateComponent>();
+
+            for (int i = 0; i < pool.Partition; i++)
             {
-                ref PositionComponent pos = ref posPool.Components[i];
-                Host host = posPool.Roster[pos.RosterIndex].Host;
-                if (!HostManager.IsValid(host)) continue;
-
-                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
-                if (hType.IsNull) continue;
-
-                var reference = HostManager.GetActor(host);
-                if (reference is not Actor actor) continue;
-
-                Animator animator = actor.Animator;
+                ref var anim = ref pool.Components[i];
+                Animator animator = anim.Animator;
                 if (animator == null) continue;
 
-                Handle hGroundAnim = DCSystem.Get<GroundedAnimationComponent>(host, chain);
-                if (!hGroundAnim.IsNull)
+                if (anim.IsFalling)
+                    animator.SetInteger(PARAM_FALLTYPE, anim.FallType);
+                else
                 {
-                    ref GroundedAnimationComponent a = ref DCSystem.ResolveHandle<GroundedAnimationComponent>(hGroundAnim);
-                    animator.SetInteger(PARAM_LOCOMOTION, a.Locomotion);
-                    animator.SetInteger(PARAM_COMBAT, a.Combat);
-                    continue;
-                }
-
-                Handle hFallAnim = DCSystem.Get<FallingAnimationComponent>(host, chain);
-                if (!hFallAnim.IsNull)
-                {
-                    ref FallingAnimationComponent a = ref DCSystem.ResolveHandle<FallingAnimationComponent>(hFallAnim);
-                    animator.SetInteger(PARAM_FALLTYPE, a.FallType);
-                    continue;
+                    animator.SetInteger(PARAM_LOCOMOTION, anim.Locomotion);
+                    animator.SetInteger(PARAM_COMBAT, anim.Combat);
                 }
             }
         }
     }
 
     // ============================================================
-    //  TRANSFORM SYNC — Position + Look → Transform
+    //  TRANSFORM SYNC
     // ============================================================
 
     public static class TransformSyncSystem
     {
         public static void Update(HostChain chain)
         {
+            var pool = ComponentRegistry.GetPool<TransformStateComponent>();
             var posPool = ComponentRegistry.GetPool<PositionComponent>();
-            for (int i = 0; i < posPool.Partition; i++)
+            var lookPool = ComponentRegistry.GetPool<LookComponent>();
+
+            for (int i = 0; i < pool.Partition; i++)
             {
-                ref PositionComponent pos = ref posPool.Components[i];
-                Host host = posPool.Roster[pos.RosterIndex].Host;
-                if (!HostManager.IsValid(host)) continue;
+                ref var ts = ref pool.Components[i];
+                if (ts.Actor == null) continue;
 
-                Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
-                if (hType.IsNull) continue;
-
-                var reference = HostManager.GetActor(host);
-                if (reference is not BaseActor actor) continue;
-
-                Transform t = actor.transform;
+                Transform t = ts.Actor.transform;
                 if (t == null) continue;
 
-                t.position = pos.Position;
-
-                Handle hLook = DCSystem.Get<LookComponent>(host, chain);
-                if (!hLook.IsNull)
+                if (!ts.PositionHandle.IsNull)
                 {
-                    ref LookComponent look = ref DCSystem.ResolveHandle<LookComponent>(hLook);
+                    ref var pos = ref posPool.ResolveHandle(ts.PositionHandle);
+                    t.position = new Vector3(pos.Position.x, t.position.y, pos.Position.z);
+                }
+
+                if (!ts.LookHandle.IsNull)
+                {
+                    ref var look = ref lookPool.ResolveHandle(ts.LookHandle);
                     t.rotation = Quaternion.Euler(0f, look.Yaw, 0f);
                 }
             }
