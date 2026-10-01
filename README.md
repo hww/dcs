@@ -1,8 +1,3 @@
-Хорошо. Вот **правленый** README. Готов к копированию.
-
----
-
-```markdown
 # Dynamic Component System (DCS)
 
 A dynamic component framework for Unity that supports data-oriented runtime systems,
