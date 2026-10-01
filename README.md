@@ -259,7 +259,6 @@ The ambiguity usually means that the responsibility needs to be clarified first.
 ## Status
 
 DCS is an evolving framework.
-
 The module READMEs define the intended architectural boundaries.
 Detailed documentation describes the current implementation state.
 ```
