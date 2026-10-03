@@ -3,11 +3,11 @@ using DCS.Core;
 
 // 1. Чистый DOD-компонент для вращения. Никаких интерфейсов.
 [ComponentPool(5000)]
-public struct RotatorComponent : IComponent
+public struct RotatorComponent : IHostable
 {
     public float Speed; // Скорость вращения (градусов в секунду)
     public float CurrentAngle; // Текущий угол
-    public int RosterIndex { get; set; }
+    public Host Host { get; set; }
 }
 
 // 2. Система, которая выполняет конкретную работу над пулом
@@ -26,7 +26,7 @@ public static class RotatorSystem
             ref RotatorComponent rotator = ref pool.Components[i];
             
             // Из параллельного массива метаданных за 1 такт узнаем, какому Хосту принадлежит память
-            Host host = pool.Roster[i].Host;
+            Host host = rotator.Host;
 
             // Наращиваем угол
             rotator.CurrentAngle += rotator.Speed * deltaTime;

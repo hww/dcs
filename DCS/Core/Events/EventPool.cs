@@ -73,7 +73,6 @@ namespace DCS.Core
             // Setup roster slot
             Roster[rosterIndex].Index = (System.UInt16)denseIndex;
             Roster[rosterIndex].Generation++;
-            Roster[rosterIndex].Host = hostHandle;
 
             int currentGen = Roster[rosterIndex].Generation;
 
@@ -81,7 +80,7 @@ namespace DCS.Core
             ref T ev = ref Components[denseIndex];
             ev = default;
             ev.NamespaceMask = namespaceMask;
-            ev.RosterIndex = rosterIndex;
+            ev.Host = hostHandle;
 
             // Create handle and add to host chain
             Handle handle = new Handle
@@ -112,7 +111,7 @@ namespace DCS.Core
 
         public Host GetSenderHost(int denseIndex)
         {
-            return Roster[denseIndex].Host;
+            return Components[denseIndex].Host;
         }
 
     }

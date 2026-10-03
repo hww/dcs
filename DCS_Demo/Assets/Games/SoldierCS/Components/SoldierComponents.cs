@@ -25,9 +25,9 @@ namespace DCS.Game.SoldierCS
     }
 
     [ComponentPool(1000)]
-    public struct InputComponent : IComponent
+    public struct InputComponent : IHostable
     {
-        public int RosterIndex { get; set; }
+        public Host Host { get; set; }
 
         public float Forward;   // W/S, -1..1
         public float Strafe;    // A/D, -0.5..0.5
@@ -40,22 +40,20 @@ namespace DCS.Game.SoldierCS
     [ComponentPool(1000)]
     public struct CombatStateComponent : IComponent
     {
-        public int RosterIndex { get; set; }
         public ECombatState Value;
     }
 
     [ComponentPool(1000)]
     public struct LocomotionComponent : IComponent
     {
-        public int RosterIndex { get; set; }
         public ELocomotion Value;
 
     }
 
     [ComponentPool(1000)]
-    public struct ViewComponent : IComponent
+    public struct ViewComponent : IHostable
     {
-        public int RosterIndex { get; set; }
+        public Host Host { get; set; }
         public int ViewId;
         public Actor Actor;
     }

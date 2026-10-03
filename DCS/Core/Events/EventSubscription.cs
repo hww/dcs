@@ -19,7 +19,7 @@ namespace DCS.Core
     /// Stored in SubscriptionManager pool and linked via TypeChainManager
     /// for fast event dispatching.
     /// </remarks>
-    public struct SubscriptionNode : IComponent
+    public struct SubscriptionNode 
     {
         /// <summary>Event type being subscribed to (ComponentType{TEvent}.Id).</summary>
         public int TargetEventTypeId;

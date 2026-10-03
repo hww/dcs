@@ -21,9 +21,9 @@ namespace DCS.Tests.PlayMode
     }
 
     [ComponentPool(1000)]
-    public struct BenchmarkComponent : IComponent
+    public struct BenchmarkComponent : IHostable
     {
-        public int RosterIndex { get; set; }
+        public Host Host { get; set; }
 
         // Primitive fields
         public string EntityName;

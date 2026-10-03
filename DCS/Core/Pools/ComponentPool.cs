@@ -10,18 +10,22 @@ namespace DCS.Core
     // ============================================================
 
     /// <summary>
-    /// A slot in the Roster, linking handles to component data and owners.
+    /// A slot in the Roster, linking handles to dense component data.
     /// </summary>
     /// <remarks>
     /// Each RosterItem represents a stable slot that maps:
     /// - DcsHandle (Id + Generation) → Component data (Index)
-    /// - Component owner (Host)
-    /// - Free list link (Next)
+    /// - Free-list link (Next) when the slot is free
+    /// - Used-list links (Next, Prev) when the slot is used
     ///
     /// The Roster is the "sparse array" that provides stable handles
     /// while the component data (Dense Array) can be compacted via Swap-Back.
     ///
-    /// Memory: 16 bytes (4 fields × 4 bytes)
+    /// Memory: 8 bytes (4 × ushort)
+    ///
+    /// Note: Host is intentionally NOT stored here — it lives inside the
+    /// component itself (via the optional IComponent.Host field), so that
+    /// IComponent is no longer a required constraint.
     /// </remarks>
     public struct RosterItem
     {
@@ -29,13 +33,39 @@ namespace DCS.Core
         public ushort Index;
 
         /// <summary>Generation for handle validation. Incremented on each free.</summary>
-        public int Generation;
+        public ushort Generation;
 
-        /// <summary>Host that owns this component.</summary>
-        public Host Host;
+        /// <summary>
+        /// Next slot in the containing list (free-list or used-list, depending on state).
+        /// </summary>
+        public ushort Next;
 
-        /// <summary>Next free slot index (for free list) or next chain node.</summary>
-        public int Next;
+        /// <summary>
+        /// Previous slot in the used-list. Unused when the slot is free.
+        /// </summary>
+        public ushort Prev;
+    }
+
+    // ============================================================
+    //  ROSTER LINK — HEAD/TAIL PAIR FOR INTRUSIVE LISTS
+    // ============================================================
+
+    /// <summary>
+    /// Head/Tail pair for an intrusive doubly-linked list stored in RosterItem.
+    /// </summary>
+    public struct RosterLink
+    {
+        public ushort Head;
+        public ushort Tail;
+
+        public const ushort Null = 0xFFFF;
+
+        public static RosterLink Empty => new RosterLink { Head = Null, Tail = Null };
+        public bool IsEmpty
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Head == Null;
+        } 
     }
 
     // ============================================================
@@ -45,31 +75,39 @@ namespace DCS.Core
     /// <summary>
     /// High-performance component pool with dense array storage and sparse roster handles.
     /// </summary>
-    /// <typeparam name="T">Component type (must be a struct implementing IDcsComponent).</typeparam>
+    /// <typeparam name="T">Component type (struct). IComponent is no longer required.</typeparam>
     /// <remarks>
     /// Architecture:
     /// - Dense Array: Contiguous storage of active components (cache-friendly iteration)
     /// - Sparse Roster: Stable handles with generation (safe references)
-    /// - Swap-Back: O(1) removal with compaction
-    /// - Free List: Reuses roster slots without allocation
+    /// - Used-list: Intrusive doubly-linked list over roster slots (order == dense order)
+    /// - Free-list: Intrusive singly-linked list over roster slots (reuses slots)
+    /// - Swap-Back: O(1) removal with compaction, driven entirely by the used-list
     ///
-    /// Operations:
-    /// - Allocate: O(1) — assigns component, creates handle
-    /// - Free: O(1) — removes component, compacts dense array, updates roster
-    /// - ResolveHandle: O(1) — validates generation, returns component reference
+    /// The used-list invariant is: iterating Head → Tail yields roster slots whose
+    /// RosterItem.Index equals 0, 1, 2, ... Partition-1 in order. Therefore:
+    ///   - usedList.Tail  == roster slot of the last dense component
+    ///   - Partition      == used-list length
     ///
-    /// Memory: Components array (capacity × sizeof(T)) + Roster array (capacity × 16 bytes)
+    /// This lets Free() find the last component's roster slot in O(1) without
+    /// reading RosterIndex from the component, so IComponent is no longer needed.
     ///
     /// Thread Safety: Not thread-safe. All operations must be on the main thread.
     /// </remarks>
-    public class ComponentPool<T> : IComponentPool, IFieldAccessForIndex where T : struct, IComponent
+    public class ComponentPool<T> : IComponentPool, IFieldAccessForIndex where T : struct
     {
+        // ============================================================
+        //  CONSTANTS
+        // ============================================================
+
+        private const ushort NULL = RosterLink.Null;
+
         // ============================================================
         //  PUBLIC STATE
         // ============================================================
 
-        /// <summary>Number of active components (boundary between used and free dense slots).</summary>
-        public System.UInt16 Partition = 0;
+        /// <summary>Number of active components (== length of used-list).</summary>
+        public ushort Partition = 0;
 
         /// <summary>Dense array of all component data (active and free slots).</summary>
         public T[] Components;
@@ -81,11 +119,14 @@ namespace DCS.Core
         //  PRIVATE STATE
         // ============================================================
 
-        /// <summary>Head of the free roster slot list.</summary>
-        protected int _freeRosterHead = -1;
+        /// <summary>Head of the free roster slot list (singly-linked via RosterItem.Next).</summary>
+        protected ushort _freeRosterHead = NULL;
 
         /// <summary>Counter for allocating new roster slots when free list is empty.</summary>
         protected int _rosterIncr = 0;
+
+        /// <summary>Intrusive doubly-linked list of used roster slots (order == dense order).</summary>
+        protected RosterLink _usedList = RosterLink.Empty;
 
         /// <summary>Type of the component (for debugging).</summary>
         private readonly System.Type _componentType;
@@ -102,13 +143,17 @@ namespace DCS.Core
         /// <summary>Bit mask for group filtering.</summary>
         private uint _mask;
 
-
         // Thread-safe high-performance compiled delegates for safe unboxed marshalling
         private static RefFieldGetter<T> _compiledGetField;
         private static RefFieldSetter<T> _compiledSetField;
 
+        // Compiled message-receiver bridge (null if T does not implement IMessageReceiver).
+        private static MessageReceiverBridge<T> _receiverBridge;
+
+        private delegate void MessageReceiverBridge<TComp>(ref TComp comp, int msgTypeId, Handle msgHandle);
+
         // ============================================================
-        // Инициализацатор 
+        //  INITIALIZER
         // ============================================================
 
         public delegate void InitDelegate(ref T comp, object prius);
@@ -120,21 +165,14 @@ namespace DCS.Core
 
         static ComponentPool()
         {
-            // Automatically build fast delegate pipelines on type initialization
             BuildAccessors();
+            BuildReceiverBridge();
         }
 
         // ============================================================
         //  CONSTRUCTOR
         // ============================================================
 
-        /// <summary>
-        /// Initializes a new component pool with the specified capacity and settings.
-        /// </summary>
-        /// <param name="capacity">Maximum number of concurrent instances.</param>
-        /// <param name="updateStages">Update stages on the main processor.</param>
-        /// <param name="asyncUpdateStages">Async update stages.</param>
-        /// <param name="mask">Bit mask for group filtering.</param>
         public ComponentPool(
             int capacity,
             EUpdateStage updateStages = EUpdateStage.Update,
@@ -151,38 +189,109 @@ namespace DCS.Core
 
             // Initialize free list: all slots are initially free
             for (int i = 0; i < capacity; i++)
-                Roster[i].Next = i + 1;
-            Roster[capacity - 1].Next = -1;
+            {
+                Roster[i].Next = (ushort)(i + 1);
+                Roster[i].Prev = NULL;
+                Roster[i].Index = 0;
+                Roster[i].Generation = 0;
+            }
+            Roster[capacity - 1].Next = NULL;
+
+            _freeRosterHead = 0;
+            _usedList = RosterLink.Empty;
         }
-  
+
+        // ============================================================
+        //  USED-LIST HELPERS (INTRUSIVE DOUBLY-LINKED LIST)
+        // ============================================================
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void UsedListAppend(ushort slot)
+        {
+            ref RosterItem item = ref Roster[slot];
+            item.Next = NULL;
+            item.Prev = _usedList.Tail;
+
+            if (_usedList.Tail == NULL)
+            {
+                _usedList.Head = slot;
+            }
+            else
+            {
+                Roster[_usedList.Tail].Next = slot;
+            }
+            _usedList.Tail = slot;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void UsedListRemove(ushort slot)
+        {
+            ref RosterItem item = ref Roster[slot];
+
+            if (item.Prev == NULL)
+                _usedList.Head = item.Next;
+            else
+                Roster[item.Prev].Next = item.Next;
+
+            if (item.Next == NULL)
+                _usedList.Tail = item.Prev;
+            else
+                Roster[item.Next].Prev = item.Prev;
+
+            item.Prev = NULL;
+            item.Next = NULL;
+        }
+
+        // ============================================================
+        //  FREE-LIST HELPERS (INTRUSIVE SINGLY-LINKED LIST)
+        // ============================================================
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ushort FreeListPop()
+        {
+            if (_freeRosterHead != NULL)
+            {
+                ushort slot = _freeRosterHead;
+                _freeRosterHead = Roster[slot].Next;
+                Roster[slot].Next = NULL;
+                Roster[slot].Prev = NULL;
+                return slot;
+            }
+
+            // No free slots — allocate a new one.
+            if (_rosterIncr >= Roster.Length)
+                throw new System.Exception(
+                    $"DCS Error: Pool capacity exceeded for {_componentType.Name}!"
+                );
+
+            ushort fresh = (ushort)_rosterIncr++;
+            Roster[fresh].Next = NULL;
+            Roster[fresh].Prev = NULL;
+            return fresh;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void FreeListPush(ushort slot)
+        {
+            Roster[slot].Prev = NULL;
+            Roster[slot].Next = _freeRosterHead;
+            _freeRosterHead = slot;
+        }
+
         // ============================================================
         //  HANDLE RESOLUTION
         // ============================================================
 
-        /// <summary>
-        /// Resolves a handle to a component reference.
-        /// </summary>
-        /// <param name="handle">Handle to resolve.</param>
-        /// <returns>Reference to the component.</returns>
-        /// <exception cref="System.InvalidCastException">If the handle is stale.</exception>
-        /// <remarks>
-        /// Validates generation match before returning the component.
-        /// If the generation doesn't match, the handle is stale (component was freed).
-        ///
-        /// Complexity: O(1)
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ResolveHandle(Handle handle)
         {
             int rosterIndex = handle.Id;
 
-            // Validate generation
             if (Roster[rosterIndex].Generation == handle.Generation)
             {
                 int denseIndex = Roster[rosterIndex].Index;
                 return ref Components[denseIndex];
             }
-
 
             throw new System.InvalidCastException(
                 $"DCS ValidCast Error: Handle is stale for pool {_componentType.Name}"
@@ -193,33 +302,23 @@ namespace DCS.Core
         //  ALLOCATION
         // ============================================================
 
-        /// <summary>
-        /// Allocates a new component.
-        /// </summary>
-        /// <param name="hostHandle">Host that owns the component.</param>
-        /// <param name="chain">Host chain manager.</param>
-        /// <returns>Handle to the allocated component.</returns>
         public Handle Allocate(Host hostHandle, HostChain chain)
             => Allocate(hostHandle, chain, null);
 
         /// <summary>
-        /// Allocates a new component with initialization data.
+        /// Allocates a new component.
         /// </summary>
-        /// <param name="hostHandle">Host that owns the component.</param>
-        /// <param name="chain">Host chain manager.</param>
-        /// <param name="prius">Initialization data (optional).</param>
-        /// <returns>Handle to the allocated component.</returns>
-        /// <exception cref="System.Exception">If the pool capacity is exceeded.</exception>
         /// <remarks>
         /// Algorithm:
-        /// 1. Takes a roster slot from the free list (or allocates a new one)
-        /// 2. Assigns the next dense index (Partition)
-        /// 3. Increments generation (protects against stale handles)
-        /// 4. Stores the host reference in the roster
-        /// 5. Initializes the component (default, sets RosterIndex, calls Init)
-        /// 6. Creates a handle and adds the component to the host's chain
+        /// 1. Pop a roster slot from the free list (or bump _rosterIncr).
+        /// 2. Assign the next dense index (Partition).
+        /// 3. Increment generation (protects against stale handles).
+        /// 4. Append the roster slot to the used-list.
+        /// 5. Initialize the component (default, Init callback).
+        /// 6. Create a handle and add the component to the host chain.
         ///
-        /// Complexity: O(1)
+        /// Note: Host is no longer stored in RosterItem. Callers that need the
+        /// owner should keep it inside the component itself.
         /// </remarks>
         public Handle Allocate(Host hostHandle, HostChain chain, object prius)
         {
@@ -228,97 +327,100 @@ namespace DCS.Core
                     $"DCS Error: Pool capacity exceeded for {_componentType.Name}!"
                 );
 
-            // Get a roster slot (free list or new)
-            int rosterIndex = (_freeRosterHead != -1) ? _freeRosterHead : _rosterIncr++;
-            if (_freeRosterHead != -1)
-                _freeRosterHead = Roster[_freeRosterHead].Next;
-
+            ushort rosterIndex = FreeListPop();
             int denseIndex = Partition++;
 
-            // Setup roster slot
-            Roster[rosterIndex].Index = (System.UInt16)denseIndex;
-            Roster[rosterIndex].Generation++;
-            Roster[rosterIndex].Host = hostHandle;
-            int currentGen = Roster[rosterIndex].Generation;
+            ref RosterItem slot = ref Roster[rosterIndex];
+            slot.Index = (ushort)denseIndex;
+            slot.Generation++;
+
+            UsedListAppend(rosterIndex);
 
             // Initialize component
             ref T comp = ref Components[denseIndex];
             comp = default;
-            comp.RosterIndex = rosterIndex;
 
             if (InitCallback != null)
                 InitCallback(ref comp, prius);
 
             // Add to host chain
-            Handle handle = new Handle { Id = (System.UInt16)rosterIndex, Generation = (System.UInt16)currentGen };
+            Handle handle = new Handle
+            {
+                Id = rosterIndex,
+                Generation = slot.Generation
+            };
             chain.Add(hostHandle, handle, _poolId);
 
             return handle;
         }
 
-        /// <summary>
-        /// Allows non-generic allocation via the native Lua bridge
-        /// </summary>
-        /// <param name="hostHandle"></param>
-        /// <param name="chain"></param>
-        /// <returns></returns>
         public Handle SystemAllocate(Host hostHandle, HostChain chain)
-        {
-            return Allocate(hostHandle, chain, null);
-        }
+            => Allocate(hostHandle, chain, null);
 
         public Handle SystemAllocate(Host hostHandle, HostChain chain, object prius)
-        {
-            return Allocate(hostHandle, chain, prius);
-        }
+            => Allocate(hostHandle, chain, prius);
 
         // ============================================================
         //  FREE
         // ============================================================
 
         /// <summary>
-        /// Frees a component and compacts the dense array.
+        /// Frees a component and compacts the dense array via swap-back.
         /// </summary>
-        /// <param name="hostHandle">Host that owns the component.</param>
-        /// <param name="chain">Host chain manager.</param>
-        /// <param name="handle">Handle to the component to free.</param>
         /// <remarks>
-        /// Algorithm (Swap-Back):
-        /// 1. Removes the component from the host's chain
-        /// 2. Increments generation (invalidates all old handles)
-        /// 3. Returns the roster slot to the free list
-        /// 4. Decrements Partition
-        /// 5. If the freed slot wasn't the last, moves the last component
-        ///    into the freed slot and updates its RosterIndex
+        /// Algorithm (Swap-Back, entirely roster-driven):
+        /// 1. Remove the component from the host's chain.
+        /// 2. Increment generation (invalidates all old handles).
+        /// 3. Determine lastRoster = _usedList.Tail, lastDense = Roster[lastRoster].Index.
+        /// 4. If deleted != last, move Components[lastDense] → Components[deletedDense]
+        ///    and update Roster[lastRoster].Index = deletedDense.
+        /// 5. Remove the deleted slot from the used-list and push it to the free-list.
+        /// 6. Partition--.
         ///
-        /// Complexity: O(1) + O(N) for chain removal (N = components of the host)
+        /// Note: no component field (RosterIndex) is ever read here, which is
+        /// what makes IComponent optional.
+        ///
+        /// Complexity: O(1) + O(N) for chain removal (N = components of the host).
         /// </remarks>
         public void Free(Host hostHandle, HostChain chain, ref Handle handle)
         {
-            int rosterIndexToDelete = handle.Id;
-            int denseIndexToDelete = Roster[rosterIndexToDelete].Index;
+            ushort deletedRoster = handle.Id;
+            int deletedDense = Roster[deletedRoster].Index;
 
-            // Remove from host chain
-            chain.Remove(Roster[rosterIndexToDelete].Host, handle, _poolId);
+            // Remove from host chain (uses handle before invalidating it).
+            chain.Remove(hostHandle, handle, _poolId);
 
-            // Invalidate roster slot and return to free list
-            Roster[rosterIndexToDelete].Generation++;
-            Roster[rosterIndexToDelete].Next = _freeRosterHead;
-            Roster[rosterIndexToDelete].Host = default;
-            _freeRosterHead = rosterIndexToDelete;
+            // Invalidate roster slot.
+            Roster[deletedRoster].Generation++;
+            Roster[deletedRoster].Index = 0;
 
-            // Swap-Back: compact the dense array
+            // Determine the last used slot (== last dense component).
+            ushort lastRoster = _usedList.Tail;
             Partition--;
-            int denseIndexToMove = Partition;
 
-            if (denseIndexToDelete != denseIndexToMove)
+            if (lastRoster != deletedRoster)
             {
-                // Move the last component into the deleted slot
-                Components[denseIndexToDelete] = Components[denseIndexToMove];
-                // Update the roster to point to the new dense index
-                int movingRosterIndex = Components[denseIndexToDelete].RosterIndex;
-                Roster[movingRosterIndex].Index = (System.UInt16)denseIndexToDelete;
+                int lastDense = Roster[lastRoster].Index;
+
+                // Move the last component into the deleted dense slot.
+                Components[deletedDense] = Components[lastDense];
+
+                // The moving slot now points to the deleted dense index.
+                Roster[lastRoster].Index = (ushort)deletedDense;
+                // (Its position in the used-list does not change — the slot is
+                //  still the tail; only the dense index it points to changed.)
+
+                // Remove the deleted slot from the used-list (it is NOT the tail).
+                UsedListRemove(deletedRoster);
             }
+            else
+            {
+                // Deleted slot is the tail — just detach it.
+                UsedListRemove(deletedRoster);
+            }
+
+            // Return the deleted slot to the free-list.
+            FreeListPush(deletedRoster);
 
             handle = default;
         }
@@ -327,50 +429,34 @@ namespace DCS.Core
         //  CLEAR FRAME POOL
         // ============================================================
 
-        /// <summary>
-        /// Clears all components from the pool (used for frame-based event pools).
-        /// </summary>
-        /// <remarks>
-        /// Resets the pool to empty state:
-        /// 1. Clears the dense array (zeros out active components)
-        /// 2. Resets Partition to 0
-        /// 3. Resets the roster free list (all slots become free)
-        /// 4. Increments generations to invalidate all existing handles
-        ///
-        /// This is used for event pools that should be reset each frame.
-        /// </remarks>
         public virtual void ClearFramePool()
         {
-            // Clear dense array
             System.Array.Clear(Components, 0, Partition);
 
-            // Reset state
             Partition = 0;
             _rosterIncr = 0;
-            _freeRosterHead = -1;
+            _freeRosterHead = 0;
+            _usedList = RosterLink.Empty;
 
-            // Reset roster: all slots become free with incremented generations
             for (int i = 0; i < Roster.Length; i++)
             {
-                Roster[i].Host = default;
-                Roster[i].Generation++; // Invalidate all existing handles
-                Roster[i].Next = i + 1;
+                ref RosterItem item = ref Roster[i];
+                item.Index = 0;
+                item.Generation++;   // invalidate all existing handles
+                item.Next = (ushort)(i + 1);
+                item.Prev = NULL;
             }
-            Roster[Roster.Length - 1].Next = -1;
+            Roster[Roster.Length - 1].Next = NULL;
         }
 
         // ============================================================
         //  SYSTEMFREE — INTERFACE IMPLEMENTATION
         // ============================================================
 
-        /// <summary>
-        /// System-level free called by HostChainManager during host destruction.
-        /// </summary>
         void IComponentPool.SystemFree(Host hostHandle, HostChain chain, Handle handle)
         {
-            // Validate handle before freeing
             if (Roster[handle.Id].Generation != handle.Generation)
-                return; // Handle is stale, component already freed
+                return;
 
             Handle handleCopy = handle;
             Free(hostHandle, chain, ref handleCopy);
@@ -380,61 +466,38 @@ namespace DCS.Core
         //  SYSTEMDELIVER — INTERFACE IMPLEMENTATION
         // ============================================================
 
-        /// <summary>
-        /// Delivers a message to a component at the specified roster index.
-        /// </summary>
-        /// <param name="rosterIndex">Roster index of the receiver.</param>
-        /// <param name="msgTypeId">Type ID of the message.</param>
-        /// <param name="msgHandle">Message handle with generation validation.</param>
-        /// <remarks>
-        /// Called by EventSystem during message delivery.
-        /// Validates the receiver's generation before dispatching.
-        /// If the receiver implements IMessageReceiver, delivers the message.
-        ///
-        /// Complexity: O(1)
-        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DeliverDirect(int rosterIndex, int msgTypeId, Handle msgHandle)
         {
-            // Validate receiver generation
             if (Roster[rosterIndex].Generation != msgHandle.Generation)
                 return;
 
-            int denseIndex = Roster[rosterIndex].Index;
+            if (_receiverBridge == null)
+                return;
 
-            // Deliver message if receiver implements the interface
-            if (Components[denseIndex] is IMessageReceiver receiver)
-            {
-                receiver.ReceiveMessage(msgTypeId, msgHandle);
-            }
+            int denseIndex = Roster[rosterIndex].Index;
+            _receiverBridge(ref Components[denseIndex], msgTypeId, msgHandle);
         }
 
-        /// <summary>
-        /// System-level message delivery (wraps DeliverDirect).
-        /// </summary>
         public void SystemDeliver(int rosterIndex, int msgTypeId, Handle msgHandle)
             => DeliverDirect(rosterIndex, msgTypeId, msgHandle);
 
+        // ============================================================
+        //  HANDLE → DENSE INDEX
+        // ============================================================
 
-        /// <summary>
-        /// Tries to get the dense index from a Handle.
-        /// Validates the Handle's Generation against the Roster slot.
-        /// </summary>
         public bool TryGetDenseIndex(Handle handle, out int denseIndex)
         {
             denseIndex = -1;
 
-            // Check bounds
             if (handle.Id < 0 || handle.Id >= Roster.Length)
                 return false;
 
             ref RosterItem slot = ref Roster[handle.Id];
 
-            // Validate generation
             if (slot.Generation != handle.Generation)
                 return false;
 
-            // Check if slot is occupied
             if (slot.Index == HandleConfig.NULL_INDEX)
                 return false;
 
@@ -442,33 +505,28 @@ namespace DCS.Core
             return true;
         }
 
-        /// <summary>
-        /// Reads a field from a component and pushes it to Lua stack.
-        /// Default implementation does nothing.
-        /// Override in concrete pools (PositionPool, HealthPool, etc.).
-        /// </summary>
+        // ============================================================
+        //  FIELD ACCESS
+        // ============================================================
+
         public virtual bool GetField(int denseIndex, string fieldName, IntPtr L)
         {
             if (_compiledGetField == null) return false;
-            // Pass structure strictly by reference, ensuring zero boxing
             return _compiledGetField(ref Components[denseIndex], fieldName, L);
-
         }
 
-        /// <summary>
-        /// Reads a value from Lua stack and writes it to a component field.
-        /// Default implementation does nothing.
-        /// Override in concrete pools (PositionPool, HealthPool, etc.).
-        /// </summary>
         public virtual bool SetField(int denseIndex, string fieldName, IntPtr L)
         {
             if (_compiledSetField == null) return false;
             return _compiledSetField(ref Components[denseIndex], fieldName, L);
         }
 
+        // ============================================================
+        //  STATIC ACCESSOR PIPELINES
+        // ============================================================
+
         private static void BuildAccessors()
         {
-            // Fallback to type-safe runtime JIT compilation via Expression Trees
             try
             {
                 _compiledGetField = FieldExpressionFactory.CreateGetter<T>();
@@ -476,31 +534,54 @@ namespace DCS.Core
             }
             catch (Exception ex)
             {
-                UnityEngine.Debug.LogError($"[DCS Registry Error] Failed to generate fast field accessors for type {typeof(T).Name}: {ex.Message}");
+                UnityEngine.Debug.LogError(
+                    $"[DCS Registry Error] Failed to generate fast field accessors " +
+                    $"for type {typeof(T).Name}: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Tries to get the Host that owns the component identified by the given Handle.
-        /// Validates the Handle's Generation against the Roster slot.
-        /// </summary>
-        public bool TryGetHost(Handle handle, out Host host)
+        private static void BuildReceiverBridge()
         {
-            host = default;
+            // If T implements IMessageReceiver, compile a direct bridge once.
+            if (!typeof(IMessageReceiver).IsAssignableFrom(typeof(T)))
+            {
+                _receiverBridge = null;
+                return;
+            }
 
-            if (handle.Id < 0 || handle.Id >= Roster.Length)
-                return false;
+            _receiverBridge = (ref T comp, int msgTypeId, Handle msgHandle) =>
+            {
+                // Boxing-free cast via constrained call is not expressible in a
+                // generic delegate directly; use Unsafe.As to reinterpret the
+                // struct as its interface reference without allocation.
+                ref IMessageReceiver asReceiver = ref Unsafe.As<T, IMessageReceiver>(ref comp);
+                asReceiver.ReceiveMessage(msgTypeId, msgHandle);
+            };
+        }
 
-            ref RosterItem slot = ref Roster[handle.Id];
+        // ============================================================
+        //  DIAGNOSTICS
+        // ============================================================
 
-            if (slot.Generation != handle.Generation)
-                return false;
-
-            if (slot.Index == HandleConfig.NULL_INDEX)
-                return false;
-
-            host = slot.Host;
-            return true;
+        /// <summary>
+        /// Iterates the used-list in dense order. Debug/validation use only.
+        /// </summary>
+        public void ForEachUsedRosterSlot(Action<ushort, int> visit)
+        {
+            ushort cur = _usedList.Head;
+            int expectedDense = 0;
+            while (cur != NULL)
+            {
+                visit(cur, expectedDense);
+                if (Roster[cur].Index != expectedDense)
+                {
+                    Debug.LogError(
+                        $"[DCS Roster Invariant] slot {cur} has dense {Roster[cur].Index} " +
+                        $"but expected {expectedDense} (pool {_componentType.Name})");
+                }
+                expectedDense++;
+                cur = Roster[cur].Next;
+            }
         }
 
         public void SetPoolId(int newId)

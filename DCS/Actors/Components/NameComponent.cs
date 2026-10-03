@@ -11,7 +11,6 @@ namespace DCS.Actors
     [ComponentPool(4096)]
     public struct NameComponent : IComponent
     {
-        public int RosterIndex { get; set; }
         public Name Name;
     }
 }

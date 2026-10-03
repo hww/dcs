@@ -23,6 +23,7 @@ public struct DamageEvent : IEvent
     public float Amount;
     public int RosterIndex { get; set; }
     public uint NamespaceMask { get; set; }
+    public Host Host { get; set; }
 }
 
 [MessagePool(100)]
@@ -31,6 +32,7 @@ public struct LocationEvent : IEvent
     public int ZoneId;
     public int RosterIndex { get; set; }
     public uint NamespaceMask { get; set; }
+    public Host Host { get ; set ; }
 }
 
 // =========================================================================
@@ -45,10 +47,9 @@ public struct DummyStateComponent : IComponent
 }
 
 [ComponentPool(100)]
-public struct MonsterBrainProcess : IComponent, IMessageReceiver
+public struct MonsterBrainProcess : IMessageReceiver, IComponent
 {
     public Handle CurrentStateHandle;
-    public int RosterIndex { get; set; }
 
     public void ReceiveMessage(int msgTypeId, Handle msgHandle)
     {

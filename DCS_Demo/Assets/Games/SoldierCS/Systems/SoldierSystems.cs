@@ -67,7 +67,7 @@ namespace DCS.Game.SoldierCS
             for (int i = 0; i < inputPool.Partition; i++)
             {
                 ref InputComponent input = ref inputPool.Components[i];
-                Host host = inputPool.Roster[input.RosterIndex].Host;
+                Host host = input.Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
@@ -119,7 +119,7 @@ namespace DCS.Game.SoldierCS
             for (int i = 0; i < viewPool.Partition; i++)
             {
                 ref ViewComponent view = ref viewPool.Components[i];
-                Host host = viewPool.Roster[view.RosterIndex].Host;
+                Host host = view.Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);
@@ -153,7 +153,7 @@ namespace DCS.Game.SoldierCS
             for (int i = 0; i < viewPool.Partition; i++)
             {
                 ref ViewComponent view = ref viewPool.Components[i];
-                Host host = viewPool.Roster[view.RosterIndex].Host;
+                Host host = view.Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 Handle hType = DCSystem.Get<ArchetypeComponent>(host, chain);

@@ -17,7 +17,7 @@ namespace DCS.Core
     /// They are stored in separate pools (EventManager) and processed via EventSystem.
     /// Key feature: NamespaceMask for subscription filtering.
     /// </remarks>
-    public interface IEvent : IComponent
+    public interface IEvent : IHostable
     {
         /// <summary>
         /// Namespace mask for subscription filtering.

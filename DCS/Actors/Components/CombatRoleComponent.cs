@@ -9,7 +9,6 @@ namespace DCS.Actors
     [ComponentPool(1000)]
     public struct CombatRoleComponent : IComponent
     {
-        public int RosterIndex { get; set; }
 
         /// <summary>CombatRole enum value (None/Engager/Ambusher/Defender/GrenadeThrower/Flanker).</summary>
         public CombatRole Role;

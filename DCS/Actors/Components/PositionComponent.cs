@@ -11,7 +11,7 @@ namespace DCS.Actors
     [ComponentPool(16384)]
     public struct PositionComponent : IComponent
     {
-        public int RosterIndex { get; set; }
+        public Host Host { get; set; }
         public Vector3 Position;
         public Quaternion Rotation;
     }

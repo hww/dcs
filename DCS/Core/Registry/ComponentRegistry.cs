@@ -24,7 +24,7 @@ namespace DCS.Core
     ///
     /// Usage: ComponentType{MyComponent}.Id returns the unique type ID.
     /// </remarks>
-    public static class ComponentType<T> where T : struct, IComponent
+    public static class ComponentType<T> where T : struct
     {
         /// <summary>Unique type identifier for T.</summary>
         public static readonly int Id = ComponentRegistry.RegisterNewType<T>();
@@ -141,7 +141,7 @@ namespace DCS.Core
         ///
         /// Complexity: O(1)
         /// </remarks>
-        public static int RegisterNewType<T>() where T : struct, IComponent
+        public static int RegisterNewType<T>() where T : struct
         {
             int newId = _typeCounter++;
             if (newId >= MaxComponentTypes)
@@ -181,7 +181,7 @@ namespace DCS.Core
         /// Complexity: O(1)
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentPool<T> GetPool<T>() where T : struct, IComponent
+        public static ComponentPool<T> GetPool<T>() where T : struct
         {
             return (ComponentPool<T>)Pools[ComponentType<T>.Id];
         }

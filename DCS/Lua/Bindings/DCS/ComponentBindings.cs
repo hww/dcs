@@ -81,7 +81,8 @@ namespace DCS.Lua
 
             args.CheckInteger(1);
             int typeId = (int)args.CheckInteger(2);
-            int packedHandle = (int)args.CheckInteger(3);
+            int packedHost = (int)args.CheckInteger(3);
+            int packedHandle = (int)args.CheckInteger(4);
 
             if (!HostResolver.TryGetDomain(L, 1, out Domain domain))
                 return 0;
@@ -95,8 +96,7 @@ namespace DCS.Lua
             if (pool == null)
                 return 0;
 
-            if (pool.TryGetHost(handle, out Host host))
-                pool.SystemFree(host, domain.HostChain, handle);
+            pool.SystemFree(new Host(packedHost), domain.HostChain, handle);
 
             return 0;
         }

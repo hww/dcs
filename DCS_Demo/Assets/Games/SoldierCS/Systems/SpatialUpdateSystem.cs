@@ -27,8 +27,7 @@ namespace DCS.Lua
             for (int i = 0; i < _pool.Partition; i++)
             {
                 ref var pos = ref _pool.Components[i];
-                int rosterIdx = pos.RosterIndex;
-                Host host = _pool.Roster[rosterIdx].Host;
+                Host host = pos.Host;
                 if (!HostManager.IsValid(host)) continue;
 
                 ushort hostId = host.Id;

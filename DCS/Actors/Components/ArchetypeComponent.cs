@@ -11,8 +11,6 @@ namespace DCS.Actors
     [ComponentPool(4096)]
     public struct ArchetypeComponent : IComponent
     {
-        public int RosterIndex { get; set; }
-
         public Name Archetype;
     }
 }

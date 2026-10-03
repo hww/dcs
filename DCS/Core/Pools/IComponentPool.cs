@@ -56,12 +56,6 @@ namespace DCS.Core
         bool TryGetDenseIndex(Handle handle, out int denseIndex);
 
         /// <summary>
-        /// Tries to get the Host that owns the component identified by the given Handle.
-        /// Validates the Handle's Generation against the Roster slot.
-        /// </summary>
-        bool TryGetHost(Handle handle, out Host host);
-
-        /// <summary>
         /// Assign pool id
         /// </summary>
         /// <param name="newId"></param>
